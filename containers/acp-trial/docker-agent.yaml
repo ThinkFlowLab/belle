@@ -1,0 +1,32 @@
+# Belle's agent for `docker-agent serve acp`, one process per conversation. The relay entry puts the
+# conversation's binding in BELLE_TURN. BELLE_TOOLS_TOKEN is the tool server's stable token.
+# Environment: API_BASE, API_KEY and MODEL_NAME name the model. BELLE_TOOLS_URL is Belle's tool server.
+models:
+  default:
+    provider: openai
+    model: ${env.MODEL_NAME}
+    base_url: ${env.API_BASE}
+    token_key: API_KEY
+    provider_opts:
+      api_type: openai_chatcompletions
+
+agents:
+  root:
+    model: default
+    description: Belle
+    instruction: You are Belle, an assistant in a chat workspace.
+    skills: true
+    redact_secrets: false
+    toolsets:
+      - type: mcp
+        name: belle
+        remote:
+          url: ${env.BELLE_TOOLS_URL}
+          transport_type: streamable
+          headers:
+            Authorization: "Bearer ${env.BELLE_TOOLS_TOKEN}"
+            X-Belle-Turn: "${env.BELLE_TURN}"
+        # Belle runs on a private address.
+        allow_private_ips: true
+      # Docker Agent asks the ACP client before each shell command.
+      - type: shell

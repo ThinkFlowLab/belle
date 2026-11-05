@@ -1,0 +1,18 @@
+{
+  "comment": [
+    "Sample CI flake signature. Replace or remove it for your repositories.",
+    "A failure matches when every string in all_of appears in its failure text.",
+    "Match failure text, not test names; a flaky condition can affect different tests.",
+    "A matching signature is a hint, not a reason to hide a failed build."
+  ],
+  "signatures": [
+    {
+      "name": "sample unclosed socket",
+      "all_of": [
+        "PytestUnraisableExceptionWarning",
+        "ResourceWarning",
+        "unclosed"
+      ]
+    }
+  ]
+}

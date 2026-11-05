@@ -1,0 +1,51 @@
+# Belle + Docker Agent in one command. In a directory with this file, model.env, belle.env and a .env
+# that sets BELLE_REGISTRY and BELLE_VERSION:
+#   podman compose up -d    (or: docker compose up -d)
+# Compose pulls the images. In a clone of the repository, `up -d --build` builds them instead, and
+# BELLE_REGISTRY=localhost with BELLE_VERSION=local names the tags of a local build. See README.md.
+# belle.env holds the variables of the platform. On Matrix, the first start writes the recovery key to the
+# belle-data volume and stops: see docs/platforms/matrix.md. The belle-state volume holds the Matrix store.
+
+name: belle-docker-agent
+
+# Both containers get these. The two secrets default to trial values published with this file, so anyone
+# knows them. No port is published, so only these two containers can use them. Put your own in a .env file
+# beside this one, or in the environment of the compose command, before you publish a port.
+x-pairing: &pairing
+  BELLE_BACKEND: docker_agent
+  DOCKER_AGENT_URL: http://belle-docker-agent:8080
+  DOCKER_AGENT_AUTH_TOKEN: ${DOCKER_AGENT_AUTH_TOKEN:-belle-trial-not-a-secret}
+  BELLE_TOOLS_URL: http://belle:18300/mcp
+  BELLE_RELAY_URL: http://belle:18200
+  BELLE_RELAY_TOKEN: ${BELLE_RELAY_TOKEN:-belle-trial-not-a-secret-either}
+  DOCKER_AGENT_MAX_REQUEST_BYTES: "16777216"
+
+services:
+  belle-docker-agent:
+    image: ${BELLE_REGISTRY:?set BELLE_REGISTRY to the registry and namespace of the Belle images, or to localhost for a local build}/belle:docker-agent-${BELLE_VERSION:?set BELLE_VERSION to the version of the Belle images, such as v1.0.0, or to local for a local build}
+    build:
+      context: ../..
+      dockerfile: containers/docker-agent/Containerfile
+    read_only: true
+    tmpfs: [/tmp]
+    env_file: model.env
+    environment: *pairing
+    volumes:
+      - docker-agent-data:/data
+
+  belle:
+    image: ${BELLE_REGISTRY:?set BELLE_REGISTRY to the registry and namespace of the Belle images, or to localhost for a local build}/belle:launcher-${BELLE_VERSION:?set BELLE_VERSION to the version of the Belle images, such as v1.0.0, or to local for a local build}
+    build:
+      context: ../..
+      dockerfile: containers/launcher/Containerfile
+    env_file: belle.env
+    environment: *pairing
+    volumes:
+      - belle-state:/home/belle/.local/state/belle-agent
+      - belle-data:/home/belle/.local/share/belle-agent
+    depends_on: [belle-docker-agent]
+
+volumes:
+  docker-agent-data:
+  belle-state:
+  belle-data:

@@ -1,0 +1,120 @@
+# Belle on an OpenCode server, with the loopback platform.
+#
+#   python -m belle_agent.launcher --config belle-opencode-loopback.yaml --state-dir <directory>
+#
+# The loopback platform keeps its conversations in memory, so this file runs
+# with no messaging service and no platform credential.
+#
+# BELLE_BACKEND selects the route, and nothing else changes between the two:
+#   opencode  Belle's OpenCode adapter, over OpenCode's HTTP server. See docs/backends/opencode.md.
+#   acp       OpenCode over ACP, through the relay socket BELLE_ACP_SOCKET (experimental). See docs/backends/acp.md.
+#
+# Two secrets of the opencode route are read from the environment and are refused in this file:
+#   OPENCODE_SERVER_PASSWORD  the password of the OpenCode server
+#   BELLE_RELAY_TOKEN         the token the relay plugin sends, where OpenCode loads the plugin
+# A `${NAME}` in an address below is read from the environment.
+
+backend: ${BELLE_BACKEND}
+
+backends:
+  opencode:
+    # Where the OpenCode server listens. One host: http://127.0.0.1:4096.
+    url: ${OPENCODE_URL}
+    # Keeps two deployments that share one server out of each other's sessions.
+    namespace: ""
+    # The tool server: where it listens, and the address OpenCode reaches it at.
+    # One host: bind 127.0.0.1 and leave `url` out.
+    tools:
+      bind: 0.0.0.0
+      port: 18300
+      url: ${BELLE_TOOLS_URL}
+    # The relay endpoint. It listens only where OpenCode loads the relay plugin,
+    # at the address the plugin reads from BELLE_RELAY_URL.
+    relay:
+      bind: 0.0.0.0
+      port: 18200
+  acp:
+    profile: opencode
+    tools:
+      bind: 0.0.0.0
+      port: 18300
+      url: ${BELLE_TOOLS_URL}
+    profiles:
+      opencode:
+        socket: ${BELLE_ACP_SOCKET}
+        cwd: /work
+        connection: shared
+        tools_mount: session
+        binding: {meta: ai.opencode/sessionID}
+        tool_name_format: belle_{name}
+
+platforms:
+  loopback:
+    enabled: true
+    # The socket `python -m belle_agent.platforms.loopback` drives the platform
+    # through. Leave it out and the platform listens nowhere.
+    control: ${BELLE_LOOPBACK_CONTROL}
+
+# The Second Brain runs without OpenJiuwen. Set enabled: false
+# to turn the feature off.
+second_brain:
+  enabled: true
+  ingest:
+    # Loopback cannot identify public conversations, so this selects none.
+    channels: [public]
+  # Recall by meaning as well as by word, through an OpenAI-compatible
+  # embeddings endpoint. Without one, or with use_embeddings off, ranking is
+  # lexical.
+  # retrieval:
+  #   use_embeddings: true
+  #   embeddings:
+  #     api_base: ${EMBEDDINGS_API_BASE}
+  #     api_key: ${EMBEDDINGS_API_KEY}
+  #     model: ${EMBEDDINGS_MODEL}
+
+scopes:
+  # Every conversation: no built-in OpenCode tool that reads the server's
+  # files, changes them or reaches its interface. OpenCode runs every
+  # conversation in one server, and these tools run in that server's
+  # environment, where its password and the provider key are. This is the
+  # list a deployment that serves more than one trust domain from one server
+  # must deny. `edit` also governs `write`: OpenCode gates both by one
+  # permission. Without `execute`, OpenCode offers the Code Mode tools as
+  # direct tools, so each is denied by name. `question` and `skill` reach
+  # nothing and stay on.
+  #
+  # On the acp route, Belle applies no level to OpenCode's own tools and warns
+  # at start: OpenCode's own `permission` configuration denies them there.
+  #
+  # This is this file's choice, and the adapter adds none of its own: remove
+  # an entry and that tool is offered. Grant the shell only to a conversation
+  # that is alone on its OpenCode server, or shares it with conversations of
+  # the same trust domain.
+  - match: {channel: loopback}
+    permissions:
+      tools:
+        shell: deny
+        execute: deny
+        edit: deny
+        read: deny
+        grep: deny
+        glob: deny
+        webfetch: deny
+        websearch: deny
+        subagent: deny
+        external_directory: deny
+        opencode_session_rename: deny
+        opencode_session_move: deny
+        opencode_worktree_create: deny
+        opencode_worktree_list: deny
+        opencode_models: deny
+        opencode_list_mcp_resources: deny
+        opencode_read_mcp_resource: deny
+
+  # A channel: Belle reads every message and answers only by calling the
+  # posting tool. A turn that does not call it posts nothing. A direct
+  # message is always answered.
+  - match: {channel: loopback, chat_type: channel}
+    delivery:
+      mode: [all]
+      reply: optional

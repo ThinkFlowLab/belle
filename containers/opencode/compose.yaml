@@ -1,0 +1,48 @@
+# Belle + OpenCode in one command. In a directory with this file, model.env, belle.env and a .env
+# that sets BELLE_REGISTRY and BELLE_VERSION:
+#   podman compose up -d    (or: docker compose up -d)
+# Compose pulls the images. In a clone of the repository, `up -d --build` builds them instead, and
+# BELLE_REGISTRY=localhost with BELLE_VERSION=local names the tags of a local build. See README.md.
+# belle.env holds the variables of the platform. On Matrix, the first start writes the recovery key to the
+# belle-data volume and stops: see docs/platforms/matrix.md. The belle-state volume holds the Matrix store.
+
+name: belle-opencode
+
+# Both containers get these. The two secrets default to trial values published with this file, so anyone
+# knows them. No port is published, so only these two containers can use them. Put your own in a .env file
+# beside this one, or in the environment of the compose command, before you publish a port.
+x-pairing: &pairing
+  BELLE_BACKEND: opencode
+  OPENCODE_URL: http://belle-opencode:4096
+  OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD:-belle-trial-not-a-secret}
+  BELLE_TOOLS_URL: http://belle:18300/mcp
+  BELLE_RELAY_URL: http://belle:18200
+  BELLE_RELAY_TOKEN: ${BELLE_RELAY_TOKEN:-belle-trial-not-a-secret-either}
+
+services:
+  belle-opencode:
+    image: ${BELLE_REGISTRY:?set BELLE_REGISTRY to the registry and namespace of the Belle images, or to localhost for a local build}/belle:opencode-${BELLE_VERSION:?set BELLE_VERSION to the version of the Belle images, such as v1.0.0, or to local for a local build}
+    build:
+      context: ../..
+      dockerfile: containers/opencode/Containerfile
+    env_file: model.env
+    environment: *pairing
+    volumes:
+      - opencode-home:/home/opencode
+
+  belle:
+    image: ${BELLE_REGISTRY:?set BELLE_REGISTRY to the registry and namespace of the Belle images, or to localhost for a local build}/belle:launcher-${BELLE_VERSION:?set BELLE_VERSION to the version of the Belle images, such as v1.0.0, or to local for a local build}
+    build:
+      context: ../..
+      dockerfile: containers/launcher/Containerfile
+    env_file: belle.env
+    environment: *pairing
+    volumes:
+      - belle-state:/home/belle/.local/state/belle-agent
+      - belle-data:/home/belle/.local/share/belle-agent
+    depends_on: [belle-opencode]
+
+volumes:
+  opencode-home:
+  belle-state:
+  belle-data:

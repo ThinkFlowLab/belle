@@ -1,0 +1,34 @@
+# Vim files
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# Rust
+**/target/
+
+# Misc.
+*~
+tmp
+.agents/
+.cursor/
+logs/
+*.egg-info/
+
+# Some common secrets patterns
+env/*.env
+!env/*.env.example
+.env
+*.env
+!*.env.example
+*.key
+*.pem
+credentials.json
+

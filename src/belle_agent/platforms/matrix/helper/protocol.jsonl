@@ -1,0 +1,95 @@
+{"event": "hello", "protocol": 10, "helper_version": "1.0.0", "sdk_version": "0.19.1"}
+{"id": 1, "op": "start", "homeserver": "http://syn.example:8008", "user_id": "@belle:syn.example", "store_dir": "/state/matrix/default", "device_name": "belle", "store_passphrase": "example-passphrase", "password": "example-password", "recovery_key": "EsTc aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk", "recovery_key_output": "/secrets/recovery.key", "reset_identity": true}
+{"id": 1, "ok": true, "result": {"user_id": "@belle:syn.example", "device_id": "ABCDEFGHIJ", "new_device": true, "backup": "enabled", "max_upload_bytes": 52428800}}
+{"id": 2, "op": "start", "homeserver": "http://syn.example:8008", "user_id": "@belle:syn.example", "store_dir": "/state/matrix/default", "device_name": "belle", "store_passphrase": "example-passphrase"}
+{"id": 2, "ok": false, "error": {"code": "helper_start_refused", "reason": "recovery_key_missing", "message": "the account has a cross-signing identity and this new device has no recovery key"}}
+{"event": "invite", "seq": 1, "room": "!dm:syn.example", "inviter": "@alice:syn.example"}
+{"id": 3, "op": "join", "room": "!dm:syn.example"}
+{"id": 3, "ok": true, "result": {}}
+{"event": "timeline", "seq": 2, "room": "!dm:syn.example", "encrypted": true, "direct": true, "room_event": {"type": "m.room.message", "sender": "@alice:syn.example", "event_id": "$ev1", "origin_server_ts": 1760000000000, "content": {"msgtype": "m.text", "body": "hello"}}}
+{"id": 4, "op": "ack", "seq": 2}
+{"id": 4, "ok": true, "result": {}}
+{"event": "utd", "room": "!dm:syn.example", "event_id": "$ev2", "sender": "@alice:syn.example", "session_id": "SESSIONID", "direct": true}
+{"id": 5, "op": "send", "room": "!dm:syn.example", "type": "m.room.message", "content": {"msgtype": "m.notice", "body": "hi"}, "txn_id": "belle-1"}
+{"id": 5, "ok": true, "result": {"event_id": "$ev3"}}
+{"id": 6, "op": "send", "room": "!dm:syn.example", "type": "m.room.message", "content": {"msgtype": "m.notice", "body": "too long"}, "txn_id": "belle-2"}
+{"id": 6, "ok": false, "error": {"code": "M_LIMIT_EXCEEDED", "message": "Too Many Requests", "retry_after_ms": 2000}}
+{"id": 7, "op": "upload", "room": "!dm:syn.example", "mime": "text/plain", "data": "aGVsbG8K"}
+{"id": 7, "ok": true, "result": {"file": {"url": "mxc://syn.example/abc", "key": {"kty": "oct", "key_ops": ["encrypt", "decrypt"], "alg": "A256CTR", "k": "KEY", "ext": true}, "iv": "IV", "hashes": {"sha256": "HASH"}, "v": "v2"}}}
+{"id": 8, "op": "upload", "room": "!town:syn.example", "mime": "text/plain", "data": "aGVsbG8K"}
+{"id": 8, "ok": true, "result": {"url": "mxc://syn.example/def"}}
+{"id": 9, "op": "download", "file": {"url": "mxc://syn.example/abc", "key": {"kty": "oct", "key_ops": ["encrypt", "decrypt"], "alg": "A256CTR", "k": "KEY", "ext": true}, "iv": "IV", "hashes": {"sha256": "HASH"}, "v": "v2"}, "max_bytes": 31457280}
+{"id": 9, "ok": true, "result": {"data": "aGVsbG8K"}}
+{"id": 10, "op": "download", "url": "mxc://syn.example/def", "max_bytes": 31457280}
+{"id": 10, "ok": false, "error": {"code": "helper_too_large", "message": "the file is 40000000 bytes, over the limit of 31457280 bytes"}}
+{"id": 11, "op": "send", "room": "!outside:syn.example", "type": "m.room.message", "content": {"body": "x"}, "txn_id": "belle-3"}
+{"id": 11, "ok": false, "error": {"code": "helper_not_joined", "message": "room !outside:syn.example is not a joined room of this account"}}
+{"id": 13, "op": "redact", "room": "!dm:syn.example", "event_id": "$reaction1", "txn_id": "belle-4"}
+{"id": 13, "ok": true, "result": {"event_id": "$redaction1"}}
+{"id": 14, "op": "event", "room": "!dm:syn.example", "event_id": "$ev3"}
+{"id": 14, "ok": true, "result": {"encrypted": true, "undecryptable": false, "room_event": {"type": "m.room.message", "sender": "@belle:syn.example", "event_id": "$ev3", "origin_server_ts": 1760000000500, "content": {"msgtype": "m.notice", "body": "hi"}}}}
+{"id": 15, "op": "room_info", "room": "!dm:syn.example"}
+{"id": 15, "ok": true, "result": {"room": "!dm:syn.example", "encrypted": true, "public": false, "direct": true, "joined_members": 2}}
+{"id": 59, "op": "alias_resolve", "alias": "#town:syn.example"}
+{"id": 59, "ok": true, "result": {"room": "!town:syn.example", "servers": ["syn.example"], "joined": true}}
+{"id": 60, "op": "hierarchy", "room": "!town:syn.example", "limit": 50, "max_depth": 2, "suggested_only": false}
+{"id": 60, "ok": true, "result": {"rooms": [{"room_id": "!town:syn.example", "name": "town", "world_readable": false, "join_rule": "public"}], "next": "page2"}}
+{"id": 28, "op": "rooms"}
+{"id": 28, "ok": true, "result": {"rooms": [{"room": "!dm:syn.example", "encrypted": true, "public": false, "direct": true, "joined_members": 2}, {"room": "!town:syn.example", "encrypted": false, "public": true, "direct": false, "joined_members": 4, "name": "town", "alias": "#town:syn.example"}]}}
+{"id": 29, "op": "search", "search_term": "zebracorn", "limit": 50}
+{"id": 29, "ok": true, "result": {"chunk": [{"rank": 0.1, "room_event": {"type": "m.room.message", "room_id": "!town:syn.example", "sender": "@bob:syn.example", "event_id": "$hit", "origin_server_ts": 1760000000000, "content": {"msgtype": "m.text", "body": "a zebracorn"}}}], "count": 13, "next": "b10"}}
+{"id": 30, "op": "search", "search_term": "zebracorn", "limit": 50, "from": "b10", "keys": ["content.body"], "rooms": ["!town:syn.example"], "senders": ["@bob:syn.example"], "types": ["m.room.message"], "order_by": "rank", "before_limit": 1, "after_limit": 1, "include_profile": false}
+{"id": 30, "ok": true, "result": {"chunk": []}}
+{"id": 31, "op": "user_directory", "search_term": "ali", "limit": 50}
+{"id": 31, "ok": true, "result": {"results": [{"user_id": "@alice:syn.example", "display_name": "Alice"}, {"user_id": "@ali:syn.example"}], "limited": false}}
+{"id": 32, "op": "public_rooms", "search_term": "town", "server": "syn.example", "limit": 100}
+{"id": 32, "ok": true, "result": {"chunk": [{"room_id": "!town:syn.example", "name": "town", "canonical_alias": "#town:syn.example", "num_joined_members": 4, "world_readable": false, "guest_can_join": false, "join_rule": "public"}], "next": "p1", "total": 2}}
+{"id": 33, "op": "public_rooms", "limit": 100, "from": "p1"}
+{"id": 33, "ok": true, "result": {"chunk": []}}
+{"id": 34, "op": "state_get", "room": "!town:syn.example", "type": "m.room.pinned_events", "state_key": ""}
+{"id": 34, "ok": true, "result": {"event": {"type": "m.room.pinned_events", "state_key": "", "sender": "@alice:syn.example", "event_id": "$pins", "origin_server_ts": 1760000000000, "content": {"pinned": ["$hit"]}}}}
+{"id": 35, "op": "state_get", "room": "!dm:syn.example", "type": "m.room.pinned_events", "state_key": ""}
+{"id": 35, "ok": true, "result": {}}
+{"id": 36, "op": "state_put", "room": "!town:syn.example", "type": "m.room.pinned_events", "state_key": "", "content": {"pinned": ["$hit", "$ev3"]}}
+{"id": 36, "ok": false, "error": {"code": "M_FORBIDDEN", "message": "You don't have permission to post that to the room."}}
+{"id": 37, "op": "state_put", "room": "!dm:syn.example", "type": "m.room.pinned_events", "state_key": "", "content": {"pinned": ["$ev3"]}}
+{"id": 37, "ok": true, "result": {"event_id": "$pins2"}}
+{"id": 16, "op": "leave", "room": "!spam:syn.example"}
+{"id": 16, "ok": true, "result": {}}
+{"id": 17, "op": "typing", "room": "!dm:syn.example", "typing": true, "timeout_ms": 30000}
+{"id": 17, "ok": true, "result": {}}
+{"id": 18, "op": "typing", "room": "!dm:syn.example", "typing": false}
+{"id": 18, "ok": true, "result": {}}
+{"id": 19, "op": "event", "room": "!dm:syn.example", "event_id": "$ev2"}
+{"id": 19, "ok": false, "error": {"code": "M_NOT_FOUND", "message": "Event not found."}}
+{"id": 20, "op": "messages", "room": "!dm:syn.example", "limit": 2}
+{"id": 20, "ok": true, "result": {"chunk": [{"encrypted": true, "undecryptable": false, "room_event": {"type": "m.room.message", "sender": "@alice:syn.example", "event_id": "$ev4", "origin_server_ts": 1760000001000, "content": {"msgtype": "m.text", "body": "later"}}}, {"encrypted": true, "undecryptable": true, "room_event": {"type": "m.room.encrypted", "sender": "@alice:syn.example", "event_id": "$ev2", "origin_server_ts": 1759990000000, "content": {"algorithm": "m.megolm.v1.aes-sha2", "session_id": "SESSIONID", "ciphertext": "CIPHERTEXT"}}}], "next": "t47-123_0"}}
+{"id": 21, "op": "messages", "room": "!dm:syn.example", "from": "t47-123_0", "limit": 2}
+{"id": 21, "ok": true, "result": {"chunk": []}}
+{"id": 22, "op": "messages", "room": "!dm:syn.example", "before_event": "$ev4", "limit": 50}
+{"id": 22, "ok": true, "result": {"chunk": [], "next": "t40-100_0"}}
+{"id": 23, "op": "relations", "room": "!lounge:syn.example", "event_id": "$root", "rel_type": "m.thread", "limit": 50}
+{"id": 23, "ok": true, "result": {"chunk": [{"encrypted": true, "undecryptable": false, "room_event": {"type": "m.room.message", "sender": "@bob:syn.example", "event_id": "$reply", "origin_server_ts": 1760000002000, "content": {"msgtype": "m.text", "body": "in the thread", "m.relates_to": {"rel_type": "m.thread", "event_id": "$root"}}}}]}}
+{"id": 24, "op": "relations", "room": "!lounge:syn.example", "event_id": "$root", "rel_type": "m.annotation", "from": "r12", "limit": 100}
+{"id": 24, "ok": true, "result": {"chunk": []}}
+{"id": 25, "op": "members", "room": "!lounge:syn.example"}
+{"id": 25, "ok": true, "result": {"members": [{"user_id": "@belle:syn.example", "display_name": "belle", "membership": "join"}, {"user_id": "@carol:syn.example", "membership": "invite"}]}}
+{"id": 26, "op": "dm_room", "user": "@carol:syn.example", "create": true}
+{"id": 26, "ok": true, "result": {"room": "!dmcarol:syn.example", "created": true}}
+{"id": 27, "op": "dm_room", "user": "@dave:syn.example", "create": false}
+{"id": 27, "ok": true, "result": {"created": false}}
+{"event": "alert", "kind": "store_rolled_back", "message": "the server refused a one-time key upload as a duplicate"}
+{"id": 40, "op": "devices"}
+{"id": 40, "ok": true, "result": {"devices": [{"device_id": "BELLEDEVICE", "display_name": "belle", "last_seen_ts": 1792277730000, "current": true}, {"device_id": "STALEDEVICE", "current": false}]}}
+{"id": 41, "op": "delete_devices", "devices": ["STALEDEVICE"], "password": "example-password"}
+{"id": 41, "ok": true, "result": {}}
+{"id": 42, "op": "delete_devices", "devices": ["BELLEDEVICE"], "password": "example-password"}
+{"id": 42, "ok": false, "error": {"code": "helper_bad_request", "message": "devices: BELLEDEVICE is the device of this store"}}
+{"id": 43, "op": "context", "room": "!town:syn.example", "event_id": "$hit", "limit": 2}
+{"id": 43, "ok": true, "result": {"event": {"encrypted": false, "undecryptable": false, "room_event": {"event_id": "$hit", "type": "m.room.message", "sender": "@bob:syn.example", "origin_server_ts": 1760000000000, "content": {"msgtype": "m.text", "body": "a zebracorn"}}}, "before": [], "after": []}}
+{"id": 44, "op": "log_out"}
+{"id": 44, "ok": true, "result": {}}
+{"id": 45, "op": "log_out"}
+{"id": 45, "ok": false, "error": {"code": "helper_bad_request", "message": "log_out: the store held this device before the start, so it stays"}}
+{"id": 12, "op": "shutdown"}
+{"id": 12, "ok": true, "result": {}}

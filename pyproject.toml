@@ -1,0 +1,102 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "belle-agent"
+version = "1.0.0"
+description = "Reusable components for the Belle agent"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "ThinkFlowLab" }]
+requires-python = ">=3.11"
+dependencies = ["httpx>=0.28.1,<0.29", "PyYAML>=6,<7", "slack-sdk>=3", "portalocker>=3.2.0,<4", "numpy>=1.26", "cronsim>=2.7,<3", "markdown-it-py>=3,<5", "pdfplumber>=0.11", "python-docx>=1.2", "openpyxl>=3.1", "trafilatura>=2.3", "lxml>=5"]
+
+[project.scripts]
+belle-tui = "belle_agent.tui.__main__:main"
+belle-discord-install = "belle_agent.platforms.discord.install:main"
+
+[project.urls]
+Repository = "https://github.com/ThinkFlowLab/belle"
+
+[project.optional-dependencies]
+mcp = ["mcp==2.3.0"]
+openjiuwen = ["openjiuwen>=0.1.19"]
+tui = ["textual>=1,<9"]
+slack = ["slack-bolt>=1", "aiohttp>=3", "requests>=2,<3"]
+mattermost = ["aiohttp>=3"]
+discord = ["aiohttp>=3"]
+matrix = []
+# The ACP client SDK, for `backend: acp` only.
+acp = ["agent-client-protocol==0.12.1"]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff==0.17.3", "mypy", "pydocstyle", "pydoclint", "poethepoet"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+# A platform's native helper crate ships in the launcher image, not in the package.
+exclude = ["belle_agent.platforms.*.helper", "belle_agent.platforms.*.helper.*"]
+
+[tool.setuptools.package-data]
+"belle_agent.scheduling" = ["cards.json", "session_cards.json"]
+"belle_agent.integrations.docker_agent" = ["agent/*.yaml"]
+"belle_agent.integrations.opencode.plugin" = ["relay.ts"]
+"belle_agent.integrations.openjiuwen.agent_plugin" = ["manifest.json"]
+"belle_agent.skills" = ["*/SKILL.md", "*/scripts/*", "*/references/*"]
+"belle_agent.platforms.slack" = ["manifests/*.yaml"]
+"belle_agent.integrations.jiuwenswarm" = [
+  "extensions/agent_plugin/extension.py",
+  "extensions/agent_plugin/extension.yaml",
+  "extensions/mattermost/extension.py",
+  "extensions/mattermost/extension.yaml",
+  "extensions/matrix/extension.py",
+  "extensions/matrix/extension.yaml",
+  "extensions/second_brain/extension.py",
+  "extensions/second_brain/extension.yaml",
+  "extensions/slack/extension.py",
+  "extensions/slack/extension.yaml",
+]
+
+[tool.poe.tasks]
+lint = "ruff check src/"
+# The test directories are not packages and share module names such as conftest, so mypy checks src/ only.
+types = "mypy src/"
+tests = "pytest -m 'not adapter and not opencode and not docker_agent and not docker_agent_server and not mattermost_server and not matrix_server' --ignore=tests/opencode --ignore=tests/docker_agent --ignore=tests/mattermost --ignore=tests/matrix --ignore=tests/jiuwenswarm --ignore=tests/jiuwenswarm_slack --ignore=tests/conformance/test_launcher.py"
+test-opencode = "pytest tests/opencode tests/conformance/test_launcher.py tests/test_slack_connector_commands.py tests/test_config.py"
+test-opencode-conformance = "pytest tests/conformance -m adapter"
+test-docker-agent = "pytest tests/docker_agent tests/test_config.py"
+test-docker-agent-server = "pytest tests/docker_agent tests/conformance -m docker_agent_server"
+test-mattermost = "pytest tests/mattermost"
+test-mattermost-server = "pytest tests/mattermost tests/conformance -m mattermost_server"
+test-matrix = "pytest tests/matrix"
+test-matrix-server = "pytest tests/matrix -m matrix_server"
+test-jiuwenswarm = "pytest tests/jiuwenswarm tests/jiuwenswarm_slack"
+test-all = "pytest"
+doclint = "pydoclint src/"
+docstyle = "pydocstyle src/"
+check = { parallel = ["lint", "doclint", "docstyle", "types", "tests", ] }
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "contrib/evals/session-work"]
+# The kits that the suites share. Each harness's kit lives with the fixtures that reach its container.
+pythonpath = [".", "tests/conformance", "tests/opencode", "tests/docker_agent", "tests/acp"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# mypy --strict re-exports a name only through `import x as x`
+ignore = ["PLC0414"]
+
+[tool.mypy]
+strict = true
+pretty = true
+ignore_missing_imports = true
+
+[tool.pydocstyle]
+convention = "google"
+add-ignore = ["D107"]
+
+[tool.pydoclint]
+style = "google"

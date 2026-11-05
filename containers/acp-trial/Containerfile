@@ -1,0 +1,55 @@
+# Trial image of the ACP backend: Belle, the relay and one harness in one container. Not for deployment: the
+# harness shares a user and a file system with Belle's credentials and state. Build from the repository root:
+#   podman build -f containers/acp-trial/Containerfile --target docker-agent \
+#     --build-arg LAUNCHER_IMAGE=... --build-arg DOCKER_AGENT_IMAGE=... -t <tag> .
+#   podman build -f containers/acp-trial/Containerfile --target opencode \
+#     --build-arg LAUNCHER_IMAGE=... --build-arg OPENCODE_IMAGE=... -t <tag> .
+# The launcher image must hold the acp extra. The harness images are those of containers/docker-agent and
+# containers/opencode (its plain target).
+# The test image of containers/test, built on the launcher image, also holds the end-to-end checks of
+# tests/acp/test_acp_harness.py.
+ARG LAUNCHER_IMAGE=localhost/belle:launcher-local
+ARG DOCKER_AGENT_IMAGE=localhost/belle:docker-agent-local
+ARG OPENCODE_IMAGE=localhost/belle:opencode-plain-local
+
+FROM ${DOCKER_AGENT_IMAGE} AS docker-agent-image
+FROM ${OPENCODE_IMAGE} AS opencode-image
+
+FROM ${LAUNCHER_IMAGE} AS relay
+USER root
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/apt/lists,sharing=locked \
+    apt -o Dir::State::lists=/var/apt/lists update \
+    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends socat \
+    && install -d -o belle -g belle /run/belle-acp /home/belle/work
+COPY containers/acp-trial/relay-entry.sh /usr/local/bin/belle-acp-relay-entry
+COPY containers/acp-relay/relay.sh /usr/local/bin/belle-acp-trial
+ENV BELLE_ACP_SOCKET=/run/belle-acp/agent.sock
+ENTRYPOINT ["/usr/local/bin/belle-acp-trial"]
+CMD ["python", "-m", "belle_agent.launcher"]
+
+FROM relay AS docker-agent
+COPY --from=docker-agent-image /usr/local/bin/docker-agent /usr/local/bin/docker-agent
+COPY --from=docker-agent-image /usr/share/licenses/docker-agent /usr/share/licenses/docker-agent
+COPY --from=docker-agent-image --chown=belle:belle /home/belle/.agents/skills /home/belle/.agents/skills
+COPY containers/acp-trial/docker-agent.yaml /etc/docker-agent/belle-acp.yaml
+# One process per connection, with the connection's binding in BELLE_TURN. The session store outlives each one.
+ENV TELEMETRY_ENABLED=false \
+    DOCKER_AGENT_AUTO_UPDATE=0 \
+    DOCKER_AGENT_AUTO_INSTALL=false \
+    DOCKER_AGENT_CONFIG_DIR=/tmp/docker-agent/config \
+    XDG_CACHE_HOME=/tmp/docker-agent/cache \
+    BELLE_ACP_AGENT="/usr/local/bin/belle-acp-relay-entry docker-agent serve acp /etc/docker-agent/belle-acp.yaml --session-db /home/belle/.local/state/belle-agent/docker-agent-acp.db"
+USER belle
+WORKDIR /home/belle
+
+FROM relay AS opencode
+COPY --from=opencode-image /usr/local/bin/opencode /usr/local/bin/opencode
+COPY --from=opencode-image /usr/share/licenses/opencode /usr/share/licenses/opencode
+COPY containers/acp-trial/opencode.json /etc/opencode/acp.json
+ENV OPENCODE_CONFIG=/etc/opencode/acp.json \
+    OPENCODE_DISABLE_AUTOUPDATE=1 \
+    OPENCODE_DISABLE_FILEWATCHER=1 \
+    BELLE_ACP_AGENT="opencode acp"
+USER belle
+WORKDIR /home/belle

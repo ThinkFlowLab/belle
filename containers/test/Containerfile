@@ -1,0 +1,36 @@
+# Belle tests on the launcher or JiuwenSwarm image. Neither image includes the tests.
+# JiuwenSwarm needs TEST_USER=app and TEST_EXTRAS without mcp because it pins MCP 1.x.
+ARG LAUNCHER_IMAGE=localhost/belle:launcher-local
+FROM ${LAUNCHER_IMAGE}
+ARG TEST_USER=belle
+ARG TEST_EXTRAS=dev,slack,matrix,tui,discord,mcp,acp
+
+USER root
+# socat is the ACP relay of the relay checks.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/apt/lists,sharing=locked \
+    apt -o Dir::State::lists=/var/apt/lists update \
+    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends socat
+# A directory the tests can write to: some libraries write logs into the working directory.
+COPY --chown=${TEST_USER}:${TEST_USER} pyproject.toml README.md LICENSE NOTICE /home/belle/belle-agent/
+COPY --chown=${TEST_USER}:${TEST_USER} src/belle_agent /home/belle/belle-agent/src/belle_agent
+COPY --chown=${TEST_USER}:${TEST_USER} tests /home/belle/belle-agent/tests
+COPY --chown=${TEST_USER}:${TEST_USER} docs /home/belle/belle-agent/docs
+COPY --chown=${TEST_USER}:${TEST_USER} examples /home/belle/belle-agent/examples
+COPY --chown=${TEST_USER}:${TEST_USER} contrib/evals/common /home/belle/belle-agent/contrib/evals/common
+COPY --chown=${TEST_USER}:${TEST_USER} contrib/evals/models /home/belle/belle-agent/contrib/evals/models
+COPY --chown=${TEST_USER}:${TEST_USER} contrib/evals/session-work /home/belle/belle-agent/contrib/evals/session-work
+COPY --chown=${TEST_USER}:${TEST_USER} contrib/evals/silence /home/belle/belle-agent/contrib/evals/silence
+COPY --chown=${TEST_USER}:${TEST_USER} contrib/evals/reactions /home/belle/belle-agent/contrib/evals/reactions
+COPY --chown=${TEST_USER}:${TEST_USER} scripts/generate_slack_manifest.py /home/belle/belle-agent/scripts/generate_slack_manifest.py
+COPY --chown=${TEST_USER}:${TEST_USER} scripts/sync_version.py /home/belle/belle-agent/scripts/sync_version.py
+COPY --chown=${TEST_USER}:${TEST_USER} containers/opencode/Containerfile /home/belle/belle-agent/containers/opencode/Containerfile
+COPY --chown=${TEST_USER}:${TEST_USER} containers/acp-trial/relay-entry.sh /home/belle/belle-agent/containers/acp-trial/relay-entry.sh
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install "/home/belle/belle-agent[${TEST_EXTRAS}]" \
+    && python -m pip check
+ENV PYTHONPATH=/home/belle/belle-agent/src
+USER ${TEST_USER}
+WORKDIR /home/belle/belle-agent
+# The JiuwenSwarm image starts JiuwenSwarm. The tests start nothing.
+ENTRYPOINT []

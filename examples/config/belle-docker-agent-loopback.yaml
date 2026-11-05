@@ -1,0 +1,66 @@
+# Belle on a Docker Agent server, with the loopback platform.
+#
+#   python -m belle_agent.launcher --config belle-docker-agent-loopback.yaml --state-dir <directory>
+#
+# The loopback platform keeps its conversations in memory, so this file runs
+# with no messaging service and no platform credential.
+#
+# BELLE_BACKEND selects the route, and nothing else changes between the two:
+#   docker_agent  Belle's Docker Agent adapter, over `docker-agent serve api`. See docs/backends/docker-agent.md.
+#   acp           Docker Agent over ACP, through the relay socket BELLE_ACP_SOCKET (experimental). See
+#                 docs/backends/acp.md#bindings.
+#
+# Two secrets of the docker_agent route are read from the environment and are refused in this file:
+#   DOCKER_AGENT_AUTH_TOKEN  the bearer token of the Docker Agent server
+#   BELLE_RELAY_TOKEN        the token the relay hooks of the agent YAML send
+# The acp route reads the tool server's token from BELLE_TOOLS_TOKEN, which the harness gets too.
+# A `${NAME}` in an address below is read from the environment.
+
+backend: ${BELLE_BACKEND}
+
+backends:
+  docker_agent:
+    # Where the Docker Agent server listens. One host: http://127.0.0.1:8080.
+    url: ${DOCKER_AGENT_URL}
+    # Keeps two deployments that share one server out of each other's sessions.
+    namespace: ""
+    # The tool server. The agent YAML reaches it at BELLE_TOOLS_URL.
+    tools:
+      bind: 0.0.0.0
+      port: 18300
+      url: ${BELLE_TOOLS_URL}
+    # The hook endpoint, at the address the relay hooks read from BELLE_RELAY_URL.
+    relay:
+      bind: 0.0.0.0
+      port: 18200
+  acp:
+    profile: docker_agent
+    tools:
+      bind: 0.0.0.0
+      port: 18300
+      url: ${BELLE_TOOLS_URL}
+    tools_token: ${BELLE_TOOLS_TOKEN}
+    profiles:
+      docker_agent:
+        socket: ${BELLE_ACP_SOCKET}
+        cwd: /work
+        connection: per_conversation
+        tools_mount: agent
+        binding: {header: X-Belle-Turn}
+        tool_name_format: belle_{name}
+
+platforms:
+  loopback:
+    enabled: true
+    # The socket `python -m belle_agent.platforms.loopback` drives the platform
+    # through. Leave it out and the platform listens nowhere.
+    control: ${BELLE_LOOPBACK_CONTROL}
+
+scopes:
+  # A channel: Belle reads every message and answers only by calling the
+  # posting tool. A turn that does not call it posts nothing. A direct
+  # message is always answered.
+  - match: {channel: loopback, chat_type: channel}
+    delivery:
+      mode: [all]
+      reply: optional

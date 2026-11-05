@@ -1,0 +1,65 @@
+# Docker Agent with Belle's agent YAML and packaged skills. Build from the repository root:
+#   podman build -f containers/docker-agent/Containerfile \
+#     --ignorefile containers/docker-agent/.containerignore -t localhost/belle:docker-agent-local .
+# The release and its SHA-256 per architecture are build arguments. The build
+# fails when the downloaded binary does not match.
+
+ARG DEBIAN_TAG=bookworm-slim
+
+FROM docker.io/library/debian:${DEBIAN_TAG} AS fetch
+ARG DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
+ARG DOCKER_AGENT_VERSION=v1.152.0
+ARG DOCKER_AGENT_SHA256_AMD64=bb591b3b73e6ce06b24a19732371fefb5a99f001813c94e146a4b1474135c8e8
+ARG DOCKER_AGENT_SHA256_ARM64=a048a1b5da4d57b1e9669e72460e16153ea7185722b74a411ea0a9b5341ec94f
+ARG DOCKER_AGENT_LICENSE_SHA256=58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd
+ARG FZF_LICENSE_SHA256=a296f423c0d30ce3581435e78e7e36c5fe73984a882d8720c72e713b4593588b
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/apt/lists,sharing=locked \
+    apt -o Dir::State::lists=/var/apt/lists update \
+ && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends ca-certificates curl \
+ && case "${TARGETARCH:-amd64}" in \
+      amd64) sum="$DOCKER_AGENT_SHA256_AMD64" ;; \
+      arm64) sum="$DOCKER_AGENT_SHA256_ARM64" ;; \
+      *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL -o /tmp/docker-agent \
+      "https://github.com/docker/docker-agent/releases/download/${DOCKER_AGENT_VERSION}/docker-agent-linux-${TARGETARCH:-amd64}" \
+ && echo "$sum  /tmp/docker-agent" | sha256sum -c - \
+ && install -m 0755 /tmp/docker-agent /opt/docker-agent \
+ && curl -fsSL -o /opt/LICENSE "https://raw.githubusercontent.com/docker/docker-agent/${DOCKER_AGENT_VERSION}/LICENSE" \
+ && curl -fsSL -o /opt/LICENSE.fzf "https://raw.githubusercontent.com/docker/docker-agent/${DOCKER_AGENT_VERSION}/pkg/fuzzy/LICENSE.fzf" \
+ && echo "$DOCKER_AGENT_LICENSE_SHA256  /opt/LICENSE" | sha256sum -c - \
+ && echo "$FZF_LICENSE_SHA256  /opt/LICENSE.fzf" | sha256sum -c -
+
+FROM docker.io/library/debian:${DEBIAN_TAG}
+ARG DEBIAN_FRONTEND=noninteractive
+ARG AGENT_YAML=src/belle_agent/integrations/docker_agent/agent/belle.yaml
+# curl carries the relay hooks to Belle.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/apt/lists,sharing=locked \
+    apt -o Dir::State::lists=/var/apt/lists update \
+ && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends ca-certificates curl \
+ && useradd --uid 1000 --create-home --shell /usr/sbin/nologin belle \
+ && install -d -o belle -g belle /data
+COPY --from=fetch /opt/docker-agent /usr/local/bin/docker-agent
+COPY --from=fetch /opt/LICENSE /usr/share/licenses/docker-agent/LICENSE
+COPY --from=fetch /opt/LICENSE.fzf /usr/share/licenses/docker-agent/LICENSE.fzf
+COPY LICENSE NOTICE /usr/share/licenses/belle-agent/
+# The agent's name in the API is the file name without `.yaml`. A file mounted here replaces the default.
+COPY ${AGENT_YAML} /etc/docker-agent/belle.yaml
+COPY --chown=belle:belle src/belle_agent/skills /home/belle/.agents/skills
+COPY containers/docker-agent/entrypoint.sh /usr/local/bin/belle-docker-agent
+# Docker Agent's configuration and cache directories are under /tmp, so a tmpfs there is all that a
+# read-only container needs. The server also writes large tool results to /tmp.
+ENV HOME=/home/belle \
+    TELEMETRY_ENABLED=false \
+    DOCKER_AGENT_AUTO_UPDATE=0 \
+    DOCKER_AGENT_AUTO_INSTALL=false \
+    DOCKER_AGENT_CONFIG_DIR=/tmp/docker-agent/config \
+    XDG_CACHE_HOME=/tmp/docker-agent/cache
+USER belle
+WORKDIR /home/belle
+VOLUME ["/data"]
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/belle-docker-agent"]

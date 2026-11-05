@@ -1,0 +1,6 @@
+{
+  "package_type": "plugin",
+  "id": "belle-agent",
+  "name": "Belle Agent",
+  "description": "Belle agent skills and runtime capabilities"
+}

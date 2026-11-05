@@ -1,0 +1,33 @@
+// OpenCode v2 configuration for the Belle harness.
+//
+// Baked to /etc/opencode/opencode.jsonc and selected by OPENCODE_CONFIG.
+// The model endpoint, key, and name come from the container environment.
+// No key is in the image.
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  "autoupdate": false,
+
+  "model": "configured/{env:MODEL_NAME}",
+  "small_model": "configured/{env:MODEL_NAME}",
+
+  // The server lists the models named below and no others. OpenCode lists the
+  // whole published catalog of a provider it knows by name, so the provider
+  // has a name it does not know, and it is the only one enabled. A scope or a
+  // person names a model as `configured/<model id>`.
+  "enabled_providers": ["configured"],
+
+  "provider": {
+    "configured": {
+      // Any endpoint that speaks the OpenAI chat completions API.
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "apiKey": "{env:API_KEY}",
+        "baseURL": "{env:API_BASE}"
+      },
+      "models": {
+        "{env:MODEL_NAME}": {}
+      }
+    }
+  }
+}

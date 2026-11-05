@@ -1,0 +1,15 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": false,
+  "model": "configured/{env:MODEL_NAME}",
+  "small_model": "configured/{env:MODEL_NAME}",
+  "enabled_providers": ["configured"],
+  "provider": {
+    "configured": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {"apiKey": "{env:API_KEY}", "baseURL": "{env:API_BASE}"},
+      "models": {"{env:MODEL_NAME}": {}}
+    }
+  },
+  "permission": {"bash": "ask", "edit": "ask"}
+}

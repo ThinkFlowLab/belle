@@ -1,0 +1,3629 @@
+[
+  {
+    "id": "direct_dm_git_undo",
+    "user": "How do I undo my last git commit but keep the changes staged?",
+    "conversation_kind": "one_to_one_dm",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_dm_presence",
+    "user": "Hey Belle, are you around?",
+    "conversation_kind": "one_to_one_dm",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_dm_math",
+    "user": "What's 15% of 240?",
+    "conversation_kind": "one_to_one_dm",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Quick one before the meeting."
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_dm_flatten",
+    "user": "Write a Python one-liner that flattens a list of lists.",
+    "conversation_kind": "one_to_one_dm",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_dm_set_vs_list",
+    "user": "Should I use a list or a set to test membership of 10,000 items many times?",
+    "conversation_kind": "one_to_one_dm",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Can you suggest a name for our staging cluster?"
+      },
+      {
+        "role": "assistant",
+        "content": "`stage-eu-1` is short and says what it is."
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_dm_cap",
+    "user": "Can you explain the CAP theorem in plain terms?",
+    "conversation_kind": "one_to_one_dm",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_dm_summarize_paste",
+    "user": "Summarize in one sentence: The migration moves orders to the new schema in three phases. Phase one adds columns, phase two backfills, phase three drops the old columns after a week of dual writes.",
+    "conversation_kind": "one_to_one_dm",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_dm_clarify_expiry",
+    "user": "You said the cert expires in 30 days. From today or from the issue date?",
+    "conversation_kind": "one_to_one_dm",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "When does the staging certificate expire?"
+      },
+      {
+        "role": "assistant",
+        "content": "The staging certificate expires in 30 days."
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_dm_followup_python39",
+    "user": "Can you make it work on Python 3.9 too?",
+    "conversation_kind": "one_to_one_dm",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Write a script that prints the largest file in a directory."
+      },
+      {
+        "role": "assistant",
+        "content": "```python\nfrom pathlib import Path\nprint(max(Path('.').iterdir(), key=lambda p: p.stat().st_size))\n```"
+      },
+      {
+        "role": "user",
+        "content": "Nice."
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_dm_release_status",
+    "user": "Is the Friday release still on track?",
+    "conversation_kind": "one_to_one_dm",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Are the release notes finalized?"
+      },
+      {
+        "role": "assistant",
+        "content": "Not yet. QA found a blocker in checkout, so Friday is at risk."
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_dm_diff_report",
+    "user": "Rename the `userId` column to `user_id` in the schema doc and send me the diff.",
+    "conversation_kind": "one_to_one_dm",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_dm_got_message",
+    "user": "Belle, did you get my last message about the Friday freeze?",
+    "conversation_kind": "one_to_one_dm",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Heads up: the freeze starts Friday at 18:00."
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_group_mutex",
+    "user": "Belle, what's the difference between a mutex and a semaphore?",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_group_spanish",
+    "user": "Belle, how do you say 'the meeting moved to Thursday' in Spanish?",
+    "conversation_kind": "group_dm",
+    "sender": "Priya",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_group_econnreset",
+    "user": "Belle, what does ECONNRESET mean in this log line? `read ECONNRESET at TCP.onStreamRead`",
+    "conversation_kind": "group_dm",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_group_any_thoughts",
+    "user": "Belle, any thoughts?",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Should the pilot use SQLite or Postgres?",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "SQLite is simpler to ship.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Postgres if we expect more than one writer.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "We might.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_group_tabs_yaml",
+    "user": "Belle, tabs or spaces for our YAML files?",
+    "conversation_kind": "group_dm",
+    "sender": "Tomas",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_group_timezone",
+    "user": "Belle, what time is 09:00 in Berlin in New York? Assume both are on standard time.",
+    "conversation_kind": "group_dm",
+    "sender": "Priya",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "The monitors in room 4 are new.",
+        "author": "Tomas"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_group_regex_check",
+    "user": "belle can u check this regex ^\\d{3}-\\d{4}$ matches '555-1234'?",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_group_cidr",
+    "user": "Belle, Priya asked earlier what a /24 covers. What is it?",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_group_check_marcus_claim",
+    "user": "Belle, Marcus says `kill -9` is the safe way to stop Postgres. Is that right?",
+    "conversation_kind": "group_dm",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_group_run_linter_report",
+    "user": "Belle, run the linter on the `payments` package and tell me what it reports.",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_group_followup_windows",
+    "user": "And how would that look on Windows?",
+    "conversation_kind": "group_dm",
+    "sender": "Marcus",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Belle, how do I find which process is using port 8080 on Linux?",
+        "author": "Marcus"
+      },
+      {
+        "role": "assistant",
+        "content": "Run `ss -ltnp | grep :8080`. The last column shows the process and its PID."
+      },
+      {
+        "role": "user",
+        "content": "Thanks.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_group_followup_after_answer",
+    "user": "Belle, can you shorten that to one line?",
+    "conversation_kind": "group_dm",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "The monitors in room 4 are new.",
+        "author": "Tomas"
+      },
+      {
+        "role": "user",
+        "content": "Parking lot B is closed for repaving this week.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Team photo is Wednesday at 2pm.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Finally got my laptop dock working.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "The printer on 2 is out of toner again.",
+        "author": "Sam"
+      },
+      {
+        "role": "assistant",
+        "content": "The rollout has three stages: canary at 1%, a regional ramp to 25%, and a global rollout gated on error rate staying under 0.5% for an hour."
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_group_ember_named",
+    "user": "Ember, what does idempotent mean for an HTTP PUT?",
+    "conversation_kind": "group_dm",
+    "sender": "Sam",
+    "bot_name": "Ember",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_public_status_code",
+    "user": "Belle, which HTTP status should we return when a user is authenticated but not allowed to see a resource?",
+    "conversation_kind": "public_channel",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_public_squash",
+    "user": "Belle, how do I squash the last three commits?",
+    "conversation_kind": "public_channel",
+    "sender": "Marcus",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "The monitors in room 4 are new.",
+        "author": "Tomas"
+      },
+      {
+        "role": "user",
+        "content": "Parking lot B is closed for repaving this week.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Team photo is Wednesday at 2pm.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Finally got my laptop dock working.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "The printer on 2 is out of toner again.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "Lunch orders close at 11:30.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "I updated the onboarding checklist on the wiki.",
+        "author": "Tomas"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_public_thread_tldr",
+    "user": "Belle, TL;DR of the thread?",
+    "conversation_kind": "public_channel",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "Proposal: move the cron jobs to the scheduler service.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "That needs a migration window.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Two weeks of dual running is safest.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "I can own the cutover.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Rollback plan?",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "Keep the old cron enabled but dry-run.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "OK with that.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Then Thursday for the first batch.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_private_summary",
+    "user": "Belle, can you sum up the decision we reached above in two sentences?",
+    "conversation_kind": "private_channel",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "So we ship the beta to 10% of accounts?",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "Yes, EU accounts first.",
+        "author": "Tomas"
+      },
+      {
+        "role": "user",
+        "content": "And the kill switch stays on the flag service.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "Right.",
+        "author": "Tomas"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_private_env_keys",
+    "user": "Belle, is it safe to store API keys in a `.env` file committed to the repo?",
+    "conversation_kind": "private_channel",
+    "sender": "Sam",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_private_check_staging",
+    "user": "Belle, please check whether staging is up and let me know.",
+    "conversation_kind": "private_channel",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "direct_private_outage_draft",
+    "user": "Belle, draft a two-line status update: the payment outage began 09:10, was mitigated 09:42, and the root cause is unknown.",
+    "conversation_kind": "private_channel",
+    "sender": "Tomas",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "The monitors in room 4 are new.",
+        "author": "Tomas"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "room_unanswered_ls_sort",
+    "user": "Does anyone remember the `ls` flags to sort files by size?",
+    "conversation_kind": "group_dm",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "room_unanswered_time_regex",
+    "user": "What's the regex for a 24-hour HH:MM time?",
+    "conversation_kind": "public_channel",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "room_unanswered_pull_rebase",
+    "user": "Is `git pull --rebase` safe on a branch other people have pushed to?",
+    "conversation_kind": "group_dm",
+    "sender": "Tomas",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "The monitors in room 4 are new.",
+        "author": "Tomas"
+      },
+      {
+        "role": "user",
+        "content": "Parking lot B is closed for repaving this week.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Team photo is Wednesday at 2pm.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Finally got my laptop dock working.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "The printer on 2 is out of toner again.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "Lunch orders close at 11:30.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "I updated the onboarding checklist on the wiki.",
+        "author": "Tomas"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "correct_storage_math",
+    "user": "We have 2 TB of storage and the logs are 1.5 GB a day, so that's about 20 days of retention.",
+    "conversation_kind": "group_dm",
+    "sender": "Marcus",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "correct_cron_weekends",
+    "user": "FYI the cron `0 9 * * 1-5` will also run on Saturdays, so the report arrives every day.",
+    "conversation_kind": "group_dm",
+    "sender": "Priya",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "correct_rm_rf_postgres",
+    "user": "Prod disk is full. Just run `rm -rf /var/lib/postgresql/data` to clear space, it will regrow.",
+    "conversation_kind": "public_channel",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "correct_leap_day",
+    "user": "Let's set the contract deadline for February 29, 2027 so we get an extra day.",
+    "conversation_kind": "group_dm",
+    "sender": "Lena",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "correct_misquoted_bot",
+    "user": "Per Belle, the deploy window is Friday 14:00 UTC, so the freeze starts Thursday.",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "When's the deploy window?",
+        "author": "Dana"
+      },
+      {
+        "role": "assistant",
+        "content": "The deploy window is Thursday 14:00 UTC."
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "correct_ssh_port",
+    "user": "SSH listens on 2222 by default, so open 2222 in the firewall rule.",
+    "conversation_kind": "private_channel",
+    "sender": "Tomas",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Opening access to the bastion today.",
+        "author": "Tomas"
+      },
+      {
+        "role": "user",
+        "content": "Which ports?",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "Just SSH.",
+        "author": "Tomas"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "correct_ship_date",
+    "user": "Since we agreed to ship on the 14th, I'll tell the customer the 14th.",
+    "conversation_kind": "group_dm",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Proposal: ship on the 14th.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "QA needs until the 18th.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Then the 18th. Agreed.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "Fine, the 18th.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "correct_sql_fstring",
+    "user": "I built the query with f-strings: `f\"SELECT * FROM users WHERE id = {user_id}\"`. It's fine since it's an internal tool.",
+    "conversation_kind": "public_channel",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "speak"
+  },
+  {
+    "id": "person_staging_deploy",
+    "user": "Marcus, did the staging deploy go out?",
+    "conversation_kind": "group_dm",
+    "sender": "Priya",
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "person_pr_review",
+    "user": "Lena, can you review my PR when you get a chance?",
+    "conversation_kind": "public_channel",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "person_rebase_bot_knows",
+    "user": "Marcus, how do I rebase onto main again?",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "person_drop_cache",
+    "user": "Marcus, so can we drop the cache layer then?",
+    "conversation_kind": "private_channel",
+    "sender": "Priya",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Latency is flat after the index change.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The cache hit rate is only 4% now.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "So the cache costs more than it saves.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Probably.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "person_3pm",
+    "user": "Sam, are you still coming to the 3pm?",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "person_bot_mentioned_in_passing",
+    "user": "Priya, Belle said the limit is 100/min. Can you confirm that's what you saw?",
+    "conversation_kind": "group_dm",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "What's the API rate limit?",
+        "author": "Sam"
+      },
+      {
+        "role": "assistant",
+        "content": "The documented limit is 100 requests per minute."
+      }
+    ],
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "person_oncall_weekend",
+    "user": "Tomas, are you on call this weekend?",
+    "conversation_kind": "public_channel",
+    "sender": "Marcus",
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "person_after_bot_answer",
+    "user": "Marcus, does our VPC use a /24 for each subnet?",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Belle, what does a /24 cover?",
+        "author": "Dana"
+      },
+      {
+        "role": "assistant",
+        "content": "A /24 covers 256 addresses."
+      },
+      {
+        "role": "user",
+        "content": "Got it.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "person_vendor_sla",
+    "user": "Lena, what did the vendor say about the SLA?",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "The monitors in room 4 are new.",
+        "author": "Tomas"
+      },
+      {
+        "role": "user",
+        "content": "Parking lot B is closed for repaving this week.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Team photo is Wednesday at 2pm.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Finally got my laptop dock working.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "The printer on 2 is out of toner again.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "Lunch orders close at 11:30.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "I updated the onboarding checklist on the wiki.",
+        "author": "Tomas"
+      }
+    ],
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "person_ping_me",
+    "user": "Lena, ping me when you're done with the invoice.",
+    "conversation_kind": "private_channel",
+    "sender": "Tomas",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "person_k8s_rollback",
+    "user": "Priya, you know Kubernetes best. Is `kubectl rollout undo` safe mid-deploy?",
+    "conversation_kind": "public_channel",
+    "sender": "Marcus",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "person_ember_present",
+    "user": "Priya, Ember said the backup finished. Did you see the alert too?",
+    "conversation_kind": "group_dm",
+    "sender": "Sam",
+    "bot_name": "Ember",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "The nightly backup finished at 02:14."
+      }
+    ],
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "answered_vpn",
+    "user": "Sorry, what's the VPN endpoint again?",
+    "conversation_kind": "group_dm",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Does anyone know the VPN endpoint?",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "vpn.corp.example.com on port 443.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Thanks.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": true,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "answered_metrics_port",
+    "user": "What port does the metrics service listen on?",
+    "conversation_kind": "group_dm",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "The metrics service listens on 9102.",
+        "author": "Tomas"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": true,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "answered_webhook_retries",
+    "user": "What's the retry limit for the webhook sender?",
+    "conversation_kind": "public_channel",
+    "sender": "Priya",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "How often does the webhook sender retry?",
+        "author": "Dana"
+      },
+      {
+        "role": "assistant",
+        "content": "Webhook deliveries retry up to 5 times with exponential backoff."
+      },
+      {
+        "role": "user",
+        "content": "OK.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": true,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "answered_report_due",
+    "user": "When's the report due?",
+    "conversation_kind": "group_dm",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "The report is due Friday EOD.",
+        "author": "Lena"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": true,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "answered_office_closed",
+    "user": "Does anyone know if the office is closed on the 25th?",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Closed on the 25th and 26th.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": true,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "answered_release_branch_deep",
+    "user": "Which branch do we release from?",
+    "conversation_kind": "public_channel",
+    "sender": "Marcus",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "The monitors in room 4 are new.",
+        "author": "Tomas"
+      },
+      {
+        "role": "user",
+        "content": "Parking lot B is closed for repaving this week.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Team photo is Wednesday at 2pm.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Finally got my laptop dock working.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "The printer on 2 is out of toner again.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "Lunch orders close at 11:30.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "We release from release/2.4 until the end of the month.",
+        "author": "Lena"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": true,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "answered_guest_wifi",
+    "user": "Where's the guest wifi password?",
+    "conversation_kind": "private_channel",
+    "sender": "Tomas",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "What's the wifi password for guests?",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "It's on the card at the desk.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Or ask reception.",
+        "author": "Lena"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": true,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "answered_migration_env",
+    "user": "Which environment do we test the migration in?",
+    "conversation_kind": "group_dm",
+    "sender": "Priya",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Staging-2 for the migration test.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": true,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "answered_status_page",
+    "user": "Is the status page updated?",
+    "conversation_kind": "public_channel",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Status page updated at 10:05.",
+        "author": "Lena"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": true,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "answered_p95_by_bot",
+    "user": "What was the p95 latency we measured last week?",
+    "conversation_kind": "group_dm",
+    "sender": "Priya",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Belle, what was p95 latency last week?",
+        "author": "Dana"
+      },
+      {
+        "role": "assistant",
+        "content": "Last week's p95 was 412 ms, Monday to Friday."
+      },
+      {
+        "role": "user",
+        "content": "Thanks.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": true,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_build_fire",
+    "user": "lol the build farm is on fire again 🔥",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_monday_energy",
+    "user": "Monday energy: 2% battery, 98% coffee.",
+    "conversation_kind": "public_channel",
+    "sender": "Sam",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_that_went_well",
+    "user": "Well, that went well.",
+    "conversation_kind": "group_dm",
+    "sender": "Marcus",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Deploy started.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Rollback complete.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Error rate is back to normal.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_coffee_machine",
+    "user": "The coffee machine is broken again :(",
+    "conversation_kind": "public_channel",
+    "sender": "Lena",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_tabs_meme",
+    "user": "me: just one more tab / also me: 143 tabs",
+    "conversation_kind": "group_dm",
+    "sender": "Priya",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_udp_joke",
+    "user": "I'd tell you a UDP joke but you might not get it.",
+    "conversation_kind": "public_channel",
+    "sender": "Tomas",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_mondays",
+    "user": "ugh, Mondays",
+    "conversation_kind": "group_dm",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_vendor_fix",
+    "user": "Wow, the vendor finally shipped the fix.",
+    "conversation_kind": "private_channel",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The vendor release notes mention the pagination bug.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "About time.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_10k_users",
+    "user": "We hit 10k users!! 🎉",
+    "conversation_kind": "group_dm",
+    "sender": "Priya",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_happy_friday",
+    "user": "Happy Friday everyone!",
+    "conversation_kind": "public_channel",
+    "sender": "Marcus",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_only_tuesday",
+    "user": "I can't believe it's only Tuesday.",
+    "conversation_kind": "group_dm",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "The monitors in room 4 are new.",
+        "author": "Tomas"
+      },
+      {
+        "role": "user",
+        "content": "Parking lot B is closed for repaving this week.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Team photo is Wednesday at 2pm.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Finally got my laptop dock working.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Ten meetings today.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I counted eleven.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Mine got rescheduled to Friday.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_laugh_emoji",
+    "user": "😂",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "I deployed to the wrong cluster. Twice.",
+        "author": "Tomas"
+      },
+      {
+        "role": "user",
+        "content": "Classic.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_belle_judging",
+    "user": "Belle is judging my commit messages again.",
+    "conversation_kind": "group_dm",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "remark_changelog_laugh",
+    "user": "Belle's changelog entry made me laugh.",
+    "conversation_kind": "public_channel",
+    "sender": "Lena",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "done_deploying_hotfix",
+    "user": "Deploying the hotfix now.",
+    "conversation_kind": "public_channel",
+    "sender": "Sam",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "done_merged",
+    "user": "Merged #482.",
+    "conversation_kind": "group_dm",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "done_heads_down",
+    "user": "Heads down until 3. Ping me if prod breaks.",
+    "conversation_kind": "private_channel",
+    "sender": "Tomas",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "done_back_from_lunch",
+    "user": "Back from lunch.",
+    "conversation_kind": "group_dm",
+    "sender": "Marcus",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "done_out_thursday",
+    "user": "I'm out Thursday and Friday, back Monday.",
+    "conversation_kind": "public_channel",
+    "sender": "Priya",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "done_review_finished",
+    "user": "Finished reviewing the doc, left comments inline.",
+    "conversation_kind": "group_dm",
+    "sender": "Tomas",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "done_ticket_after_standup",
+    "user": "I'll update the ticket after standup.",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "done_tests_running",
+    "user": "Running the full suite again, should take about 20 minutes.",
+    "conversation_kind": "group_dm",
+    "sender": "Marcus",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "Two flaky tests failed on the first run.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "ack_dm_thanks_fixed",
+    "user": "Thanks, that fixed it.",
+    "conversation_kind": "one_to_one_dm",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Why does my script print the date in UTC?"
+      },
+      {
+        "role": "assistant",
+        "content": "Set `TZ=Europe/Berlin` before running it."
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "ack_group_plus_one",
+    "user": "+1",
+    "conversation_kind": "group_dm",
+    "sender": "Priya",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Proposal: move the retro to Thursdays.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Works for me.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "ack_private_sounds_good",
+    "user": "Sounds good to me.",
+    "conversation_kind": "private_channel",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "I'll draft the announcement.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "I'll review it.",
+        "author": "Tomas"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "ack_dm_got_it",
+    "user": "Got it, ty",
+    "conversation_kind": "one_to_one_dm",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "What's the command to list Docker volumes?"
+      },
+      {
+        "role": "assistant",
+        "content": "`docker volume ls`."
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "ack_group_thanks_belle",
+    "user": "thanks Belle!",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Belle, what's the max Slack message length?",
+        "author": "Dana"
+      },
+      {
+        "role": "assistant",
+        "content": "40,000 characters."
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "ack_public_agree_option_b",
+    "user": "Agreed, let's go with option B.",
+    "conversation_kind": "public_channel",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Option A is cheaper.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Option B scales better.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "B has the better support terms.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "ack_dm_ok_end",
+    "user": "ok",
+    "conversation_kind": "one_to_one_dm",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Can you suggest a name for our staging cluster?"
+      },
+      {
+        "role": "user",
+        "content": "Is there a limit on attachments?"
+      },
+      {
+        "role": "assistant",
+        "content": "Up to 1 GB per file."
+      },
+      {
+        "role": "user",
+        "content": "Fine."
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "ack_dm_perfect",
+    "user": "Perfect, exactly what I needed.",
+    "conversation_kind": "one_to_one_dm",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Give me a regex for ISO dates."
+      },
+      {
+        "role": "assistant",
+        "content": "`^\\d{4}-\\d{2}-\\d{2}$`"
+      },
+      {
+        "role": "user",
+        "content": "Let me test it."
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "ack_dm_lgtm_diff",
+    "user": "LGTM",
+    "conversation_kind": "one_to_one_dm",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Show the diff for the timeout change."
+      },
+      {
+        "role": "assistant",
+        "content": "`-timeout: 5` / `+timeout: 10`"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "room_oncall_tonight",
+    "user": "Who's on call tonight?",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "room_sync_at_3",
+    "user": "Anyone free for a quick sync at 3?",
+    "conversation_kind": "public_channel",
+    "sender": "Sam",
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "room_pizza",
+    "user": "Who wants pizza for the offsite lunch?",
+    "conversation_kind": "group_dm",
+    "sender": "Priya",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "room_conf_key",
+    "user": "Does anyone have the key to the small conference room?",
+    "conversation_kind": "private_channel",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "room_sleep_in",
+    "user": "Anyone else planning to sleep until noon on Saturday?",
+    "conversation_kind": "group_dm",
+    "sender": "Lena",
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "room_who_owns_billing",
+    "user": "Who owns the billing-export service these days?",
+    "conversation_kind": "public_channel",
+    "sender": "Marcus",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "room_lunch_spot",
+    "user": "Where should we go for lunch? Thai or ramen?",
+    "conversation_kind": "group_dm",
+    "sender": "Tomas",
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "room_cover_standup",
+    "user": "Can anyone cover my standup on Thursday?",
+    "conversation_kind": "private_channel",
+    "sender": "Priya",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "room_usbc_charger",
+    "user": "Does anyone have a USB-C charger I can borrow?",
+    "conversation_kind": "group_dm",
+    "sender": "Sam",
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "room_502s",
+    "user": "Is anyone else seeing 502s from the API gateway?",
+    "conversation_kind": "public_channel",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "room_retro_poll",
+    "user": "Quick poll: Thursday or Friday for the retro?",
+    "conversation_kind": "public_channel",
+    "sender": "Dana",
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "room_dessert_deep",
+    "user": "Who's bringing dessert on Friday?",
+    "conversation_kind": "group_dm",
+    "sender": "Marcus",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "The monitors in room 4 are new.",
+        "author": "Tomas"
+      },
+      {
+        "role": "user",
+        "content": "Parking lot B is closed for repaving this week.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Team photo is Wednesday at 2pm.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Finally got my laptop dock working.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "The printer on 2 is out of toner again.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "Lunch orders close at 11:30.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "I updated the onboarding checklist on the wiki.",
+        "author": "Tomas"
+      }
+    ],
+    "decision_expected": {
+      "audience": "the room",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "work_rerun_nightly_quiet",
+    "user": "Belle, rerun the nightly job. No need to reply, I'll see it in CI.",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "work_label_ticket_quiet",
+    "user": "Belle, add the `urgent` label to ticket #482. No reply needed.",
+    "conversation_kind": "private_channel",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "work_pin_message_quiet",
+    "user": "Belle, pin the message above. Don't reply here, I just want it pinned.",
+    "conversation_kind": "public_channel",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Runbook: https://wiki.example/runbook/payments",
+        "author": "Lena"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "work_move_file_quiet",
+    "user": "Belle, move `notes-old.md` into the archive folder. No confirmation needed.",
+    "conversation_kind": "group_dm",
+    "sender": "Tomas",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "work_calendar_quiet",
+    "user": "Belle, put the retro on the team calendar for Thursday 15:00. No ack needed, I'll check the calendar.",
+    "conversation_kind": "private_channel",
+    "sender": "Priya",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "work_bump_retry_dm",
+    "user": "Bump the retry limit in `config.yaml` to 5. Don't reply, I'll check the diff.",
+    "conversation_kind": "one_to_one_dm",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Can you suggest a name for our staging cluster?"
+      },
+      {
+        "role": "assistant",
+        "content": "`stage-eu-1` is short and says what it is."
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "work_snooze_reminder",
+    "user": "Belle, snooze the weekly reminder until Monday. Silently is fine.",
+    "conversation_kind": "group_dm",
+    "sender": "Marcus",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "work_archive_incidents",
+    "user": "Belle, archive this channel's old incident threads. I don't need a response.",
+    "conversation_kind": "public_channel",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "The monitors in room 4 are new.",
+        "author": "Tomas"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "work_bookmark_implicit",
+    "user": "Belle, bookmark the runbook link above for the on-call doc.",
+    "conversation_kind": "group_dm",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Runbook: https://wiki.example/runbook/oncall",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "work_add_reviewer_implicit",
+    "user": "Belle, add Priya to the release-notes reviewers list.",
+    "conversation_kind": "private_channel",
+    "sender": "Tomas",
+    "decision_expected": {
+      "audience": "you",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": true,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "claim_churn_report",
+    "user": "The quarterly report says churn fell to 3%.",
+    "conversation_kind": "group_dm",
+    "sender": "Tomas",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "claim_vendor_ships",
+    "user": "The vendor says the fix ships next week.",
+    "conversation_kind": "public_channel",
+    "sender": "Sam",
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "claim_build_green",
+    "user": "I think the build is green now.",
+    "conversation_kind": "private_channel",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "claim_qa_signoff",
+    "user": "QA signed off on build 4812.",
+    "conversation_kind": "group_dm",
+    "sender": "Lena",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "Is 4812 the candidate?",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Yes, waiting on QA.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "claim_node16",
+    "user": "Looks like 2.4 dropped support for Node 16.",
+    "conversation_kind": "public_channel",
+    "sender": "Marcus",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "claim_repeats_bot_answer",
+    "user": "So the limit is 100 requests per minute.",
+    "conversation_kind": "group_dm",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Belle, what's the API rate limit?",
+        "author": "Dana"
+      },
+      {
+        "role": "assistant",
+        "content": "The limit is 100 requests per minute."
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": true,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "thread_human_logs_match",
+    "user": "Lena, does that match what you saw in the logs?",
+    "conversation_kind": "private_channel",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "The monitors in room 4 are new.",
+        "author": "Tomas"
+      },
+      {
+        "role": "user",
+        "content": "Parking lot B is closed for repaving this week.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Team photo is Wednesday at 2pm.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The spike started at 14:02.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "I saw the first timeout at 14:03.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "Same service?",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "thread_after_bot_to_sam",
+    "user": "Sam, does that solve it for you?",
+    "conversation_kind": "group_dm",
+    "sender": "Priya",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Belle, why does `npm ci` fail without a lockfile?",
+        "author": "Sam"
+      },
+      {
+        "role": "assistant",
+        "content": "`npm ci` requires `package-lock.json`; use `npm install` to create one."
+      },
+      {
+        "role": "user",
+        "content": "That matches my experience.",
+        "author": "Priya"
+      }
+    ],
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "thread_split_tasks",
+    "user": "Dana, I'll take the second item, you take the first.",
+    "conversation_kind": "group_dm",
+    "sender": "Sam",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Two items left: the schema change and the docs.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Which one first?",
+        "author": "Sam"
+      }
+    ],
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "thread_saw_that_too",
+    "user": "Yeah, I saw that too.",
+    "conversation_kind": "group_dm",
+    "sender": "Priya",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The dashboard shows a gap around noon.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Weird.",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "thread_waiting_on_review",
+    "user": "Not yet. I'm waiting on Priya's review.",
+    "conversation_kind": "public_channel",
+    "sender": "Marcus",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Morning all.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Coffee run in 10 minutes.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "The new dashboard colors are a choice.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "Expense reports are due Friday.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "I'll join the 3pm call from my phone.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "The monitors in room 4 are new.",
+        "author": "Tomas"
+      },
+      {
+        "role": "user",
+        "content": "Parking lot B is closed for repaving this week.",
+        "author": "Marcus"
+      },
+      {
+        "role": "user",
+        "content": "Team photo is Wednesday at 2pm.",
+        "author": "Priya"
+      },
+      {
+        "role": "user",
+        "content": "Finally got my laptop dock working.",
+        "author": "Dana"
+      },
+      {
+        "role": "user",
+        "content": "The printer on 2 is out of toner again.",
+        "author": "Sam"
+      },
+      {
+        "role": "user",
+        "content": "Lunch orders close at 11:30.",
+        "author": "Lena"
+      },
+      {
+        "role": "user",
+        "content": "Did the schema change land?",
+        "author": "Dana"
+      }
+    ],
+    "decision_expected": {
+      "audience": "nobody",
+      "already_answered": false,
+      "response_requested": false,
+      "needs_work": false,
+      "claim": true
+    },
+    "suite": "silence"
+  },
+  {
+    "id": "thread_marcus_eta",
+    "user": "Marcus, what's your ETA on the schema change?",
+    "conversation_kind": "private_channel",
+    "sender": "Dana",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Schema change is mostly done.",
+        "author": "Marcus"
+      }
+    ],
+    "decision_expected": {
+      "audience": "a person",
+      "already_answered": false,
+      "response_requested": true,
+      "needs_work": false,
+      "claim": false
+    },
+    "suite": "silence"
+  }
+]

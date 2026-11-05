@@ -1,0 +1,9 @@
+{
+  "package_type": "agent_template",
+  "name": "scope-expert-lantern-probe",
+  "description": "Temporary persona probe for scoped expert selection.",
+  "persona": {"dir": "./persona"},
+  "display_name": {"en": "Lantern expert probe", "zh": "Lantern expert probe"},
+  "display_description": {"en": "Temporary persona probe for scoped expert selection.", "zh": "Temporary persona probe for scoped expert selection."},
+  "skills": []
+}

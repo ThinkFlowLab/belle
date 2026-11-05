@@ -1,0 +1,26 @@
+# The ACP relay in front of one harness, for the separate-container layout. Build from the repository root on
+# the harness's own image:
+#   podman build -f containers/acp-relay/Containerfile \
+#     --build-arg HARNESS_IMAGE=<the image of containers/docker-agent> --build-arg HARNESS_USER=belle -t <tag> .
+#   podman build -f containers/acp-relay/Containerfile \
+#     --build-arg HARNESS_IMAGE=<the plain image of containers/opencode> --build-arg HARNESS_USER=opencode -t <tag> .
+# The harness user and Belle's user must have the same user ID, 1000 in these images.
+ARG HARNESS_IMAGE
+FROM ${HARNESS_IMAGE}
+ARG HARNESS_USER
+USER root
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/apt/lists,sharing=locked \
+    apt -o Dir::State::lists=/var/apt/lists update \
+    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends socat \
+    && install -d -o ${HARNESS_USER} -g ${HARNESS_USER} /run/belle-acp /work
+COPY containers/acp-trial/relay-entry.sh /usr/local/bin/belle-acp-relay-entry
+COPY containers/acp-relay/relay.sh /usr/local/bin/belle-acp-relay
+COPY containers/acp-trial/docker-agent.yaml /etc/belle-acp/docker-agent.yaml
+COPY containers/acp-trial/opencode.json /etc/belle-acp/opencode.json
+# A new volume mounted on /run/belle-acp belongs to the harness user. Only Belle's container mounts it too.
+ENV BELLE_ACP_SOCKET=/run/belle-acp/agent.sock
+USER ${HARNESS_USER}
+WORKDIR /work
+ENTRYPOINT ["/usr/local/bin/belle-acp-relay"]
+CMD []

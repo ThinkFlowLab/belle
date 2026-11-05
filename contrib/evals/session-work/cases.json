@@ -1,0 +1,5485 @@
+[
+  {
+    "id": "short_request_positive_hint",
+    "user": "What is 8 times 7? Reply with just the number.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A positive independent-work hint must not detach an ordinary short request.",
+    "suite": "start"
+  },
+  {
+    "id": "long_independent_negative_hint",
+    "user": "Write a 1,200-word comparison of SQLite, PostgreSQL, and DuckDB for a small analytics product. Cover deployment, concurrency, query workloads, operational cost, and a recommendation. State assumptions where needed. I have provided the full scope; proceed after acknowledging this request without asking me follow-up questions.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start"
+    ],
+    "expect": "session_start",
+    "purpose": "A negative advisory hint must not block clearly independent, substantial work.",
+    "suite": "start"
+  },
+  {
+    "id": "long_independent_sender_continues",
+    "user": "Write a 1,200-word comparison of SQLite, PostgreSQL, and DuckDB for a small analytics product. Cover deployment, concurrency, query workloads, operational cost, and a recommendation. State assumptions where needed. I have provided the full scope. Acknowledge that you are starting, then continue the work independently while I keep using this conversation.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start"
+    ],
+    "expect": "session_start",
+    "purpose": "The sender explicitly plans to continue the conversation while substantial, self-contained work runs.",
+    "suite": "start"
+  },
+  {
+    "id": "continuation_with_required_context",
+    "user": "Continue the comparative report from detached session ses-abcdefghij. Use its source list and decisions to write the final recommendation section. The earlier research context is required; do not recreate it from memory.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue"
+    ],
+    "expect": "session_continue",
+    "purpose": "Use continuation when it is exposed and the requested work depends on retained context.",
+    "suite": "continue"
+  },
+  {
+    "id": "continuation_unavailable",
+    "user": "Continue the comparative report from detached session ses-abcdefghij. Use its source list and decisions to write the final recommendation section. The earlier research context is required; do not recreate it from memory.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "Do not invent or replace unavailable continuation when retained context is required.",
+    "suite": "continue"
+  },
+  {
+    "id": "research_brief_self_contained",
+    "user": "Prepare a sourced 1,500-word brief comparing three current approaches to passkeys for a consumer app. Include tradeoffs, open questions, and a recommendation. Work from public sources and send the finished brief when ready.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_start",
+    "purpose": "A substantial research brief is fully scoped and can finish independently.",
+    "suite": "start"
+  },
+  {
+    "id": "research_clarification_needed",
+    "user": "Find the best vendor for us and make a recommendation.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The goal and selection criteria are missing, so this needs clarification in the current conversation.",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "research_explicit_detached",
+    "user": "In a detached session, investigate the latest stable Python release, summarize its notable changes using official sources, and post the result here. Do not wait for me to reply.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_start",
+    "purpose": "The sender explicitly requests detached, self-contained research.",
+    "suite": "start"
+  },
+  {
+    "id": "research_followup_needs_prior_context",
+    "user": "Add a section comparing the privacy risks of the two approaches we shortlisted. Use the same criteria and sources as before.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "This is an interactive follow-up with context but no identified detached session; continue in the current turn.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Compare hosted and self-hosted search for our healthcare product using privacy, latency, and operating cost."
+      },
+      {
+        "role": "assistant",
+        "content": "I compared both options against privacy, latency, and cost, and cited three sources."
+      }
+    ],
+    "suite": "continue"
+  },
+  {
+    "id": "coding_large_migration_plan",
+    "user": "Draft a migration plan for replacing our synchronous email sender with a durable queue. Cover schema changes, retry and idempotency behavior, rollout, monitoring, and rollback. Assume a small Python service and produce a review-ready plan.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_start",
+    "purpose": "A multi-part technical plan can proceed under stated assumptions.",
+    "suite": "start"
+  },
+  {
+    "id": "coding_small_snippet",
+    "user": "Show me a Python expression that sorts a list of dictionaries by the key \"created_at\".",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A small code example is a short response.",
+    "suite": "start"
+  },
+  {
+    "id": "coding_debug_requires_input",
+    "user": "Fix the bug in my app; it crashes sometimes.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The code and failure details are absent, so back-and-forth is required.",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "coding_explicit_background",
+    "user": "Please work in the background and return with a patch: add a CLI option for JSON output, update its help text, and cover it with focused tests. The repository is available to you.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_start",
+    "purpose": "The sender explicitly asks for detached work that can proceed from the supplied scope.",
+    "suite": "start"
+  },
+  {
+    "id": "analysis_dataset_synthesis",
+    "user": "Analyze this quarterly sales table. Identify the three largest changes, separate seasonality from possible one-off effects, and give a concise method note. Deliver a complete analysis without waiting for another message. Data (quarter, revenue in $k): Q1 2025 100, Q2 2025 130, Q3 2025 125, Q4 2025 180; Q1 2026 108, Q2 2026 142, Q3 2026 136, Q4 2026 198.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_start",
+    "purpose": "The substantial analysis is self-contained and explicitly independent.",
+    "suite": "start"
+  },
+  {
+    "id": "analysis_missing_metric",
+    "user": "Is our conversion rate good?",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The metric definition and comparison target are unspecified, so ask in the current turn.",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "analysis_scenario_model",
+    "user": "Build a three-scenario, five-year cash-flow model for a subscription product using the assumptions below. Explain formulas and sensitivity to churn and acquisition cost. Return the assumptions table and conclusions. [Assumptions: 2,000 starting customers; $20 monthly price; 4% monthly churn; $50 CAC; 10% monthly customer growth.]",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_start",
+    "purpose": "The longer analytical deliverable has explicit inputs and can proceed independently.",
+    "suite": "start"
+  },
+  {
+    "id": "writing_long_guide",
+    "user": "Write a practical 2,000-word onboarding guide for new maintainers of a Python open-source library. Cover local setup, tests, release flow, and how to ask for review. Use a welcoming, direct tone and finish the full draft.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_start",
+    "purpose": "A substantial complete draft can be written without more input.",
+    "suite": "start"
+  },
+  {
+    "id": "writing_sentence_edit",
+    "user": "Make this sentence clearer: “The deployment of the service was undertaken by the team yesterday.”",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A one-sentence edit is short.",
+    "suite": "start"
+  },
+  {
+    "id": "writing_interview",
+    "user": "Help me write a personal statement for this application.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The request needs personal details and likely iterative feedback.",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "writing_email_series",
+    "user": "Draft three versions of a launch email for our open-source database client: concise, technical, and friendly. Each should include the release date (June 12), migration note (no API changes), and documentation link placeholder. Return all three drafts.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_start",
+    "purpose": "The sender supplies enough constraints for a multi-part writing task.",
+    "suite": "start"
+  },
+  {
+    "id": "planning_event",
+    "user": "Create a four-week plan for a 40-person community hack day on November 14. Include workstreams, owners as role names, dependencies, and weekly checkpoints. Make reasonable assumptions and deliver a complete plan.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_start",
+    "purpose": "A complete plan can be created from the concrete event constraints.",
+    "suite": "start"
+  },
+  {
+    "id": "planning_next_step",
+    "user": "What should I do first to prepare for a conference next month?",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A short recommendation can start a useful interactive exchange.",
+    "suite": "start"
+  },
+  {
+    "id": "planning_multi_stage_interactive",
+    "user": "Let’s plan my relocation. First ask me about the destination, budget, and timing, then help me build a checklist from my answers.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The sender explicitly requests an interactive multi-stage exchange.",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "planning_independent_checklist",
+    "user": "Create a complete checklist for renewing a small nonprofit’s annual state registration. Include a timeline and mark which items depend on state-specific rules; use placeholders for jurisdiction-specific details.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_start",
+    "purpose": "The sender requests a complete self-contained checklist with uncertainty represented clearly.",
+    "suite": "start"
+  },
+  {
+    "id": "detached_request_short_explicit",
+    "user": "Run a detached session to summarize this policy excerpt into five key points and return them here: “Employees may use approved devices for work. Devices must use disk encryption and automatic updates. Lost devices must be reported to Security within one hour. Personal data must not be copied to unmanaged storage.” You can start now.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_start",
+    "purpose": "An explicit detached request includes the source text and can proceed without follow-up.",
+    "suite": "start"
+  },
+  {
+    "id": "find_prior_session",
+    "user": "I started a detached passkey research brief last week but cannot find its ID. Find the matching retained session so I can continue it.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_list"
+    ],
+    "expect": "session_list",
+    "purpose": "The sender needs to discover a visible session before continuing; list metadata is the available path.",
+    "suite": "continue"
+  },
+  {
+    "id": "continue_matching_retained_session",
+    "user": "Continue the detached report ses-abcdefghij. Finish the recommendation using the sources and criteria in that session.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_continue",
+    "purpose": "An explicit matching session ID and required prior research context call for continuation.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Compare three passkey deployment approaches using privacy, recovery, and operating cost."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached research session ses-abcdefghij."
+      }
+    ],
+    "suite": "continue"
+  },
+  {
+    "id": "continue_session_not_available",
+    "user": "Continue ses-abcdefghij and use its prior design decisions to finish the implementation. Do not recreate the decisions from memory.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "Without continuation support, the required context is unavailable; do not start a replacement task.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Design a cache invalidation strategy."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-abcdefghij."
+      }
+    ],
+    "suite": "continue"
+  },
+  {
+    "id": "new_work_after_old_session",
+    "user": "The earlier detached report is done. Separately, write a 1,000-word overview of database connection pooling for junior developers, with examples and common failure modes.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_start",
+    "purpose": "The new substantial request is independent of the old completed session.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Your earlier report is complete."
+      }
+    ],
+    "suite": "continue"
+  },
+  {
+    "id": "followup_edit_in_current_exchange",
+    "user": "Shorten the second paragraph to two sentences.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A small revision in an active exchange should happen in the current turn.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Draft a short announcement for our new command-line tool."
+      },
+      {
+        "role": "assistant",
+        "content": "The tool helps teams inspect deployments. It supports JSON and text output. It is available today."
+      }
+    ],
+    "suite": "continue"
+  },
+  {
+    "id": "poll_detached_status",
+    "user": "What happened with the detached analysis I asked for? The session is ses-abcdefghij.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_get"
+    ],
+    "expect": "session_get",
+    "purpose": "The sender asks for the state of a known detached session, so inspect that session.",
+    "suite": "continue"
+  },
+  {
+    "id": "continuation_available_context_from_history",
+    "user": "Please add a risk section to that report and preserve the same audience and decision criteria.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue"
+    ],
+    "expect": "session_continue",
+    "purpose": "This clearly continues a detached task whose session ID and context appear in recent messages.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Prepare an independent report comparing two backup strategies for a small clinic."
+      },
+      {
+        "role": "assistant",
+        "content": "I started detached session ses-abcdefghij for the report."
+      }
+    ],
+    "suite": "continue"
+  },
+  {
+    "id": "continuation_history_but_no_session_id",
+    "user": "Continue the report I started in another conversation; its research and decisions are required.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The tool cannot identify or access a session from another conversation without a visible ID.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Continue the report from my other chat."
+      }
+    ],
+    "suite": "continue"
+  },
+  {
+    "id": "detached_scope_needs_question",
+    "user": "Start a detached session to plan my wedding. Ask me whatever you need first.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The request requires sender input before independent work can begin.",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "read_completed_detached_result",
+    "user": "Show me the completed result from the detached report ses-abcdefghij.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_result",
+    "purpose": "Reading a retained result is a lifecycle lookup, not a new work request.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Your detached report in session ses-abcdefghij is complete."
+      }
+    ],
+    "suite": "continue"
+  },
+  {
+    "id": "short_recipe",
+    "user": "Give me a two-line recipe for scrambled eggs.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A compact answer needs no detached session.",
+    "history_profile": "fresh",
+    "suite": "start"
+  },
+  {
+    "id": "short_fact",
+    "user": "What is the capital of Portugal?",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A direct factual answer is brief.",
+    "history_profile": "fresh",
+    "suite": "start"
+  },
+  {
+    "id": "short_translation",
+    "user": "Translate “good morning” into Japanese.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A one-phrase translation is immediate.",
+    "history_profile": "fresh",
+    "suite": "start"
+  },
+  {
+    "id": "short_definition",
+    "user": "Define eventual consistency in one paragraph.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A short explanation fits the current turn.",
+    "history_profile": "fresh",
+    "suite": "start"
+  },
+  {
+    "id": "short_arithmetic",
+    "user": "If a $48 item is discounted by 25%, what is the sale price?",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A single calculation needs no session.",
+    "history_profile": "fresh",
+    "suite": "start"
+  },
+  {
+    "id": "short_formatting",
+    "user": "Turn this into a title: quarterly reliability review",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A one-line transformation is small.",
+    "history_profile": "fresh",
+    "suite": "start"
+  },
+  {
+    "id": "short_code",
+    "user": "Show a JavaScript expression that removes duplicate strings from an array.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A small code example is immediately useful.",
+    "history_profile": "fresh",
+    "suite": "start"
+  },
+  {
+    "id": "short_explanation",
+    "user": "Why do leaves look green? Answer in two sentences.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The requested explanation is explicitly brief.",
+    "history_profile": "fresh",
+    "suite": "start"
+  },
+  {
+    "id": "short_recommendation",
+    "user": "Name one useful way to organize a personal reading list.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The request asks for one concise suggestion.",
+    "history_profile": "fresh",
+    "suite": "start"
+  },
+  {
+    "id": "short_summary",
+    "user": "Summarize this sentence in five words: “The train was delayed because a signal failed.”",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A bounded five-word summary is short.",
+    "history_profile": "fresh",
+    "suite": "start"
+  },
+  {
+    "id": "interactive_resume",
+    "user": "Help me improve my resume. Start by asking what role I want.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The sender requests an interactive first step.",
+    "history_profile": "fresh",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "interactive_trip",
+    "user": "Plan a vacation with me, but ask for my dates and budget before suggesting anything.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The first action is a clarifying question.",
+    "history_profile": "fresh",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "interactive_choice",
+    "user": "Help me choose a laptop. Ask about my main uses first.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The sender explicitly asks for a question first.",
+    "history_profile": "fresh",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "interactive_diagnosis",
+    "user": "My plant is wilting. Ask me what kind of plant and how I water it.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "Diagnosis depends on requested follow-up information.",
+    "history_profile": "fresh",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "interactive_tutoring",
+    "user": "Teach me calculus one step at a time and wait for my answer after each step.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The requested teaching format requires turn-by-turn exchange.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Can you suggest a quiet café near a train station?"
+      }
+    ],
+    "history_profile": "irrelevant",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "interactive_meal",
+    "user": "Help me plan dinners for next week. First ask about allergies and dietary restrictions.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "A required safety and preference check comes first.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      },
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      }
+    ],
+    "history_profile": "irrelevant",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "interactive_budget",
+    "user": "Help me make a budget. Ask about income and fixed expenses before drafting it.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The needed inputs are not supplied yet.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      },
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      }
+    ],
+    "history_profile": "irrelevant",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "interactive_debug",
+    "user": "My laptop is slow. Ask me which operating system I use, then help troubleshoot.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "Troubleshooting is explicitly staged around an answer.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      },
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      },
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      }
+    ],
+    "history_profile": "irrelevant",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "interactive_speech",
+    "user": "Help me prepare a wedding toast. Ask about my relationship to the couple first.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "Personal details are required before drafting.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      },
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      }
+    ],
+    "history_profile": "irrelevant",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "interactive_language",
+    "user": "Practice French conversation with me; ask one question and wait for my reply.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The exercise is an ongoing dialogue.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      },
+      {
+        "role": "assistant",
+        "content": "Try moving the router or checking for interference from nearby appliances."
+      },
+      {
+        "role": "user",
+        "content": "I found an old film camera at a flea market."
+      },
+      {
+        "role": "assistant",
+        "content": "Check that the shutter fires and the light seals are intact before buying film."
+      },
+      {
+        "role": "user",
+        "content": "The community garden has more zucchini than we can use."
+      }
+    ],
+    "history_profile": "irrelevant",
+    "suite": "start",
+    "interaction_required": true
+  },
+  {
+    "id": "research_water_policy",
+    "user": "Write a sourced 1,200-word comparison of desalination, wastewater reuse, and reservoir expansion for a coastal city. Include cost drivers, environmental effects, and a decision framework.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The brief defines a substantial research deliverable and scope.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "I found an old film camera at a flea market."
+      },
+      {
+        "role": "assistant",
+        "content": "Check that the shutter fires and the light seals are intact before buying film."
+      },
+      {
+        "role": "user",
+        "content": "The community garden has more zucchini than we can use."
+      },
+      {
+        "role": "assistant",
+        "content": "You could freeze grated portions or share a harvest box with nearby neighbors."
+      },
+      {
+        "role": "user",
+        "content": "Is the river path muddy after rain?"
+      },
+      {
+        "role": "assistant",
+        "content": "The shaded stretch near the footbridge stays wet longest, so shoes with grip help."
+      },
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      }
+    ],
+    "history_profile": "irrelevant",
+    "suite": "start"
+  },
+  {
+    "id": "research_battery",
+    "user": "Prepare a sourced overview of sodium-ion battery commercialization, manufacturing constraints, and likely near-term markets. Separate established facts from forecasts.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The request is a self-contained research report.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "You could freeze grated portions or share a harvest box with nearby neighbors."
+      },
+      {
+        "role": "user",
+        "content": "Is the river path muddy after rain?"
+      },
+      {
+        "role": "assistant",
+        "content": "The shaded stretch near the footbridge stays wet longest, so shoes with grip help."
+      },
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      },
+      {
+        "role": "assistant",
+        "content": "Start with a consistent grind and pour slowly in small circles; change one variable at a time."
+      },
+      {
+        "role": "user",
+        "content": "Can you suggest a quiet café near a train station?"
+      },
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      }
+    ],
+    "history_profile": "irrelevant",
+    "suite": "start"
+  },
+  {
+    "id": "research_library",
+    "user": "Compare four open-source vector databases for a small document-search service. Cover deployment, filtering, backups, and license, then recommend one.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The comparison dimensions and output are fully specified.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      },
+      {
+        "role": "assistant",
+        "content": "Start with a consistent grind and pour slowly in small circles; change one variable at a time."
+      },
+      {
+        "role": "user",
+        "content": "Can you suggest a quiet café near a train station?"
+      },
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      },
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      },
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      },
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      }
+    ],
+    "history_profile": "irrelevant",
+    "suite": "start"
+  },
+  {
+    "id": "research_food_safety",
+    "user": "Create a sourced training brief on cold-chain risks for a regional meal-delivery company, with failure points, controls, and an inspection checklist.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The requested brief can be produced from public sources and stated scope.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      },
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      },
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      },
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      },
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      },
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      }
+    ],
+    "history_profile": "irrelevant",
+    "suite": "start"
+  },
+  {
+    "id": "research_history",
+    "user": "Prepare a 1,000-word overview of the development of public libraries, from subscription collections to digital lending, with dates and sources.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "A complete historical overview is independently actionable.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      },
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      },
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      },
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      },
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      },
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      },
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      }
+    ],
+    "history_profile": "irrelevant",
+    "suite": "start"
+  },
+  {
+    "id": "research_accessibility",
+    "user": "Continue the accessibility audit in detached session ses-kiosk12345. Use its findings to finish a prioritized checklist for the transit kiosk.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "The platform and deliverable are clear.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "We need an accessibility review for a transit kiosk used by people standing with luggage."
+      },
+      {
+        "role": "assistant",
+        "content": "I started detached session ses-kiosk12345 to research kiosk accessibility requirements."
+      },
+      {
+        "role": "user",
+        "content": "Please include speech output, magnification, reach, and glare checks."
+      },
+      {
+        "role": "assistant",
+        "content": "The checklist will cover those access needs and separate procurement checks from on-site testing."
+      }
+    ],
+    "history_profile": "session_lifecycle",
+    "suite": "continue"
+  },
+  {
+    "id": "research_insurance",
+    "user": "Compare term life and whole life insurance for a hypothetical 35-year-old with dependents. Explain assumptions, costs, and tradeoffs without making a personal recommendation.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The hypothetical framing supplies enough scope for an informative brief.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Use a hypothetical household with two dependents and a mortgage, not personal financial advice."
+      },
+      {
+        "role": "assistant",
+        "content": "I’ll state the assumptions and explain how coverage needs could change over time."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "research_supply",
+    "user": "Map common supply-chain risks for a small bicycle manufacturer and propose mitigations by likelihood and impact. State assumptions.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The task permits explicit assumptions and requests a complete analysis.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The bicycle maker depends on a small number of overseas suppliers for drivetrains."
+      },
+      {
+        "role": "assistant",
+        "content": "Supplier concentration and shipping delays are likely material exposures."
+      },
+      {
+        "role": "user",
+        "content": "A long stockout would stop final assembly, but excess stock ties up cash."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "research_open_data",
+    "user": "Find three public datasets suitable for teaching geospatial joins and write a short lesson outline using them.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "Dataset selection and lesson outline are a bounded deliverable.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Learners know basic spreadsheets but have not used spatial joins before."
+      },
+      {
+        "role": "assistant",
+        "content": "The datasets should be small enough to explore and have clear geographic keys."
+      },
+      {
+        "role": "user",
+        "content": "We can use city boundaries, transit stops, and neighborhood demographics."
+      },
+      {
+        "role": "assistant",
+        "content": "Those layers support an intuitive point-in-polygon exercise."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "research_accessible_events",
+    "user": "Develop a practical guide to making a two-day professional conference accessible, covering registration, venue, sessions, and communication.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The guide has clear subject areas and can be completed independently.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The conference has two tracks, a shared lunch, and a registration desk in the lobby."
+      },
+      {
+        "role": "assistant",
+        "content": "I’ll account for transitions and access information across the full attendee journey."
+      },
+      {
+        "role": "user",
+        "content": "Attendees can request accommodations during registration."
+      },
+      {
+        "role": "assistant",
+        "content": "The guide should explain how requests are handled and confirmed."
+      },
+      {
+        "role": "user",
+        "content": "We need practical actions for organizers, not a legal overview."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "coding_cli",
+    "user": "Implement a review-ready design for adding a `--dry-run` flag to a Python CLI, including expected behavior, error cases, and focused tests. Assume the codebase can be inspected.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The task asks for a complete technical proposal and permits repository inspection.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The CLI already has `--format` and `--output`; dry run should print planned changes without writing files."
+      },
+      {
+        "role": "assistant",
+        "content": "That gives a clear boundary for side effects and expected output."
+      },
+      {
+        "role": "user",
+        "content": "Invalid combinations should fail before the command contacts the service."
+      },
+      {
+        "role": "assistant",
+        "content": "I’ll include argument validation and a test that proves no request is sent."
+      },
+      {
+        "role": "user",
+        "content": "Existing commands share a common parser helper."
+      },
+      {
+        "role": "assistant",
+        "content": "I’ll check where the new flag belongs so its behavior stays consistent."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "coding_api_migration",
+    "user": "Prepare a migration plan from REST polling to server-sent events for a dashboard. Cover reconnection, proxy behavior, fallback, deployment, and monitoring.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The migration plan has explicit technical concerns.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The dashboard polls every five seconds today, and some customers sit behind restrictive proxies."
+      },
+      {
+        "role": "assistant",
+        "content": "The plan should cover long-lived connection limits and a polling fallback."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "coding_cache_review",
+    "user": "Review a hypothetical cache design with a 10-minute TTL and stale-while-revalidate. Produce failure scenarios and concrete mitigations.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The complete design and requested review output are supplied.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The cached value is a product catalogue, and stale results are acceptable for a few minutes."
+      },
+      {
+        "role": "assistant",
+        "content": "That tolerance should be stated separately from the ten-minute hard expiration."
+      },
+      {
+        "role": "user",
+        "content": "A refresh can fail while the old value is still present."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "coding_sql_schema",
+    "user": "Design a PostgreSQL schema for a library lending system with books, copies, members, and loans. Include keys, constraints, and indexes.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The schema deliverable has all required entities and scope.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "A book can have several physical copies, and a member may borrow more than one copy at once."
+      },
+      {
+        "role": "assistant",
+        "content": "The schema needs separate catalogue and copy records, plus a loan per physical copy."
+      },
+      {
+        "role": "user",
+        "content": "A copy cannot have two active loans at the same time."
+      },
+      {
+        "role": "assistant",
+        "content": "A partial uniqueness constraint can enforce that invariant in PostgreSQL."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "coding_observability",
+    "user": "Write an implementation plan for adding structured logs, metrics, and traces to a three-service application. Include rollout and validation steps.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "This is a substantial but self-contained implementation plan.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The API, worker, and scheduler run as separate services and share a request ID when available."
+      },
+      {
+        "role": "assistant",
+        "content": "That identifier can connect logs across a request path."
+      },
+      {
+        "role": "user",
+        "content": "The team has no current alert for a growing queue backlog."
+      },
+      {
+        "role": "assistant",
+        "content": "I’ll include a backlog metric and an alert with a clear response action."
+      },
+      {
+        "role": "user",
+        "content": "We need to avoid placing customer email addresses in logs."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "coding_threat_model",
+    "user": "Threat-model a password-reset flow that emails a single-use token. Cover abuse cases, controls, and tests. State reasonable assumptions.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The threat-model scope is complete and bounded.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Reset links currently contain a random token and expire after thirty minutes."
+      },
+      {
+        "role": "assistant",
+        "content": "I’ll examine token storage, replay, leakage through logs, and expiry enforcement."
+      },
+      {
+        "role": "user",
+        "content": "A user can request multiple links, and only the newest should work."
+      },
+      {
+        "role": "assistant",
+        "content": "That is a useful invariant to model and test."
+      },
+      {
+        "role": "user",
+        "content": "The flow must not reveal whether an email address has an account."
+      },
+      {
+        "role": "assistant",
+        "content": "I’ll include response timing and message behavior in the abuse cases."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "coding_data_pipeline",
+    "user": "Design a retry-safe ETL pipeline that imports daily CSV files into a warehouse. Address deduplication, schema drift, observability, and replay.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The design can proceed from the supplied requirements.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Each supplier sends one CSV per day, but columns sometimes appear in a different order."
+      },
+      {
+        "role": "assistant",
+        "content": "The importer should map by header name and validate required columns."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "coding_performance_plan",
+    "user": "Create a profiling plan for a Python web service with high p95 latency. Include tools, hypotheses, measurements, and decision points.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The sender requests an actionable standalone investigation plan.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The service is usually fast, but the p95 rises when several reports run at once."
+      },
+      {
+        "role": "assistant",
+        "content": "That points toward measuring shared database and worker contention."
+      },
+      {
+        "role": "user",
+        "content": "We have traces for HTTP requests but not for the report queries."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "coding_auth_design",
+    "user": "Compare session cookies and bearer tokens for a browser-based internal tool, then recommend an approach with implementation details.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The comparison and recommendation are fully described.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The product is a browser-only internal tool served from the same site as its API."
+      },
+      {
+        "role": "assistant",
+        "content": "That deployment detail affects cookie and cross-origin token handling."
+      },
+      {
+        "role": "user",
+        "content": "The security team wants protection against script access to credentials."
+      },
+      {
+        "role": "assistant",
+        "content": "I’ll compare storage and request protections against that threat."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "coding_backup",
+    "user": "Draft a tested backup-and-restore procedure for a small PostgreSQL deployment with a one-hour recovery-point objective.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The operational procedure has a concrete recovery target.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The database is small enough for nightly base backups, but we need point-in-time recovery."
+      },
+      {
+        "role": "assistant",
+        "content": "The procedure should pair a base backup with continuous WAL archiving."
+      },
+      {
+        "role": "user",
+        "content": "The one-hour recovery-point target needs a measured restore test."
+      },
+      {
+        "role": "assistant",
+        "content": "I’ll include a restore drill and verify the achieved recovery point."
+      },
+      {
+        "role": "user",
+        "content": "Backups go to a separate object-storage account."
+      }
+    ],
+    "history_profile": "relevant",
+    "suite": "start"
+  },
+  {
+    "id": "analysis_climate_table",
+    "user": "Analyze monthly rainfall values for two cities provided in the prompt, calculate totals and percentage differences, and explain the limits of comparing only one year.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The requested analysis is self-contained when the stated data is used.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Is the river path muddy after rain?"
+      },
+      {
+        "role": "assistant",
+        "content": "The shaded stretch near the footbridge stays wet longest, so shoes with grip help."
+      },
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      },
+      {
+        "role": "assistant",
+        "content": "Start with a consistent grind and pour slowly in small circles; change one variable at a time."
+      },
+      {
+        "role": "user",
+        "content": "Can you suggest a quiet café near a train station?"
+      },
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      },
+      {
+        "role": "user",
+        "content": "We are comparing monthly rainfall totals for Porto and Valencia; the table includes one full year for each city."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      },
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      },
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      },
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 6,
+    "suite": "start"
+  },
+  {
+    "id": "analysis_survey",
+    "user": "Analyze this supplied 500-response satisfaction survey, identify the strongest and weakest themes, and propose three follow-up questions.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The output is fully scoped and can be delivered as a report.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      },
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      },
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      },
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      },
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      },
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "The satisfaction survey has 500 responses, and the open-text answers are the main source of feedback."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      },
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 9,
+    "suite": "start"
+  },
+  {
+    "id": "analysis_queue",
+    "user": "Model expected waiting time for an M/M/1 queue at arrival rate 8 per hour and service rate 10 per hour; explain assumptions and sensitivity as utilization rises.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The numerical inputs and analysis requirements are given.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The service receives eight jobs per hour and completes about ten per hour on average."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      },
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      },
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      },
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      },
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      },
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 0,
+    "suite": "start"
+  },
+  {
+    "id": "analysis_experiment",
+    "user": "Design an A/B test for a checkout button color with a 4% baseline conversion and a 10% relative lift target. Explain sample size inputs, duration, and stopping rules.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The experiment plan has defined metric and effect target.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      },
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      },
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "Checkout conversion is about four percent, and the team wants to detect a ten percent relative lift."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      },
+      {
+        "role": "assistant",
+        "content": "Try moving the router or checking for interference from nearby appliances."
+      },
+      {
+        "role": "user",
+        "content": "I found an old film camera at a flea market."
+      },
+      {
+        "role": "assistant",
+        "content": "Check that the shutter fires and the light seals are intact before buying film."
+      },
+      {
+        "role": "user",
+        "content": "The community garden has more zucchini than we can use."
+      },
+      {
+        "role": "assistant",
+        "content": "You could freeze grated portions or share a harvest box with nearby neighbors."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 3,
+    "suite": "start"
+  },
+  {
+    "id": "analysis_portfolio",
+    "user": "Compare the provided five-year returns and volatility figures for three hypothetical portfolios. Explain risk-adjusted tradeoffs and avoid predicting future returns.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The supplied dataset and requested comparison are sufficient.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      },
+      {
+        "role": "assistant",
+        "content": "Try moving the router or checking for interference from nearby appliances."
+      },
+      {
+        "role": "user",
+        "content": "I found an old film camera at a flea market."
+      },
+      {
+        "role": "assistant",
+        "content": "Check that the shutter fires and the light seals are intact before buying film."
+      },
+      {
+        "role": "user",
+        "content": "The community garden has more zucchini than we can use."
+      },
+      {
+        "role": "assistant",
+        "content": "You could freeze grated portions or share a harvest box with nearby neighbors."
+      },
+      {
+        "role": "user",
+        "content": "The three portfolios have five-year annual returns and volatility figures in the comparison table."
+      },
+      {
+        "role": "user",
+        "content": "Is the river path muddy after rain?"
+      },
+      {
+        "role": "assistant",
+        "content": "The shaded stretch near the footbridge stays wet longest, so shoes with grip help."
+      },
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      },
+      {
+        "role": "assistant",
+        "content": "Start with a consistent grind and pour slowly in small circles; change one variable at a time."
+      },
+      {
+        "role": "user",
+        "content": "Can you suggest a quiet café near a train station?"
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 6,
+    "suite": "start"
+  },
+  {
+    "id": "analysis_inventory",
+    "user": "Build a reorder-point method for a shop using daily demand data and a 95% service target. Show formulas and one worked example using the values in the prompt.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The method and worked output are independently actionable.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "You could freeze grated portions or share a harvest box with nearby neighbors."
+      },
+      {
+        "role": "user",
+        "content": "Is the river path muddy after rain?"
+      },
+      {
+        "role": "assistant",
+        "content": "The shaded stretch near the footbridge stays wet longest, so shoes with grip help."
+      },
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      },
+      {
+        "role": "assistant",
+        "content": "Start with a consistent grind and pour slowly in small circles; change one variable at a time."
+      },
+      {
+        "role": "user",
+        "content": "Can you suggest a quiet café near a train station?"
+      },
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      },
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      },
+      {
+        "role": "user",
+        "content": "The shop has daily demand history and wants a 95 percent service level for replenishment."
+      },
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      },
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 9,
+    "suite": "start"
+  },
+  {
+    "id": "analysis_energy",
+    "user": "Analyze a supplied hourly electricity-use profile and identify peak periods, plausible shifting opportunities, and caveats.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "This is a complete analysis task on supplied data.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The meter export contains one month of hourly electricity use for the building."
+      },
+      {
+        "role": "user",
+        "content": "Can you suggest a quiet café near a train station?"
+      },
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      },
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      },
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      },
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      },
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      },
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 0,
+    "suite": "start"
+  },
+  {
+    "id": "analysis_language",
+    "user": "Compare error rates for three speech-recognition systems across the supplied accents and summarize where performance gaps are largest.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The explicit comparison task can be completed from the supplied table.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      },
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      },
+      {
+        "role": "user",
+        "content": "The evaluation table reports recognition errors for three systems across several accents."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      },
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      },
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      },
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      },
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 3,
+    "suite": "start"
+  },
+  {
+    "id": "analysis_cohort",
+    "user": "Calculate six-month retention for the three cohorts in the prompt, compare them, and explain the denominator used.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The metrics and interpretation are fully specified.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      },
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      },
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      },
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "The retention table follows three signup cohorts for six months."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      },
+      {
+        "role": "assistant",
+        "content": "Try moving the router or checking for interference from nearby appliances."
+      },
+      {
+        "role": "user",
+        "content": "I found an old film camera at a flea market."
+      },
+      {
+        "role": "assistant",
+        "content": "Check that the shutter fires and the light seals are intact before buying film."
+      },
+      {
+        "role": "user",
+        "content": "The community garden has more zucchini than we can use."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 6,
+    "suite": "start"
+  },
+  {
+    "id": "analysis_text",
+    "user": "Classify the supplied 200 support tickets by theme, estimate theme frequencies, and show a few representative paraphrased examples.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The finite dataset and outputs are defined.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      },
+      {
+        "role": "assistant",
+        "content": "Try moving the router or checking for interference from nearby appliances."
+      },
+      {
+        "role": "user",
+        "content": "I found an old film camera at a flea market."
+      },
+      {
+        "role": "assistant",
+        "content": "Check that the shutter fires and the light seals are intact before buying film."
+      },
+      {
+        "role": "user",
+        "content": "The community garden has more zucchini than we can use."
+      },
+      {
+        "role": "assistant",
+        "content": "You could freeze grated portions or share a harvest box with nearby neighbors."
+      },
+      {
+        "role": "user",
+        "content": "Is the river path muddy after rain?"
+      },
+      {
+        "role": "assistant",
+        "content": "The shaded stretch near the footbridge stays wet longest, so shoes with grip help."
+      },
+      {
+        "role": "user",
+        "content": "The support export contains 200 ticket descriptions that need grouping by recurring issue."
+      },
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      },
+      {
+        "role": "assistant",
+        "content": "Start with a consistent grind and pour slowly in small circles; change one variable at a time."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 9,
+    "suite": "start"
+  },
+  {
+    "id": "writing_policy",
+    "user": "Draft a 1,500-word remote-work policy for a 60-person nonprofit. Cover availability, equipment, security, expenses, and exceptions; mark jurisdiction-dependent areas.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The full draft can be completed with the given organization context.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The nonprofit has 60 staff and is moving to a remote-work policy this quarter."
+      },
+      {
+        "role": "user",
+        "content": "The community garden has more zucchini than we can use."
+      },
+      {
+        "role": "assistant",
+        "content": "You could freeze grated portions or share a harvest box with nearby neighbors."
+      },
+      {
+        "role": "user",
+        "content": "Is the river path muddy after rain?"
+      },
+      {
+        "role": "assistant",
+        "content": "The shaded stretch near the footbridge stays wet longest, so shoes with grip help."
+      },
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      },
+      {
+        "role": "assistant",
+        "content": "Start with a consistent grind and pour slowly in small circles; change one variable at a time."
+      },
+      {
+        "role": "user",
+        "content": "Can you suggest a quiet café near a train station?"
+      },
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      },
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      },
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 0,
+    "suite": "start"
+  },
+  {
+    "id": "writing_release_notes",
+    "user": "Find the detached session where I drafted release notes for version 2.4 yesterday; I no longer have its ID.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_list",
+    "purpose": "The changes and audience-facing output are specified.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Prepare release notes for version 2.4; it adds CSV export and fixes timezone display."
+      },
+      {
+        "role": "assistant",
+        "content": "I started detached session ses-release23456 to draft the release notes."
+      },
+      {
+        "role": "user",
+        "content": "Please mention that Python 3.9 support ends in this release."
+      },
+      {
+        "role": "assistant",
+        "content": "I will include the compatibility change and a migration note."
+      }
+    ],
+    "history_profile": "session_lifecycle",
+    "relevant_history_index": 3,
+    "suite": "start"
+  },
+  {
+    "id": "writing_curriculum",
+    "user": "Create a six-session introductory data-literacy curriculum for adult learners, with objectives, exercises, and take-home practice for each session.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "This is a sizeable but complete curriculum deliverable.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      },
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      },
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      },
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "The course is for adults new to data literacy and will meet for six sessions."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      },
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      },
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      },
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 6,
+    "suite": "start"
+  },
+  {
+    "id": "writing_case_study",
+    "user": "Write a case-study template for documenting a municipal energy-saving project, including baseline, intervention, measured results, and limitations.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "A complete reusable document can be drafted immediately.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      },
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      },
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      },
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      },
+      {
+        "role": "assistant",
+        "content": "Try moving the router or checking for interference from nearby appliances."
+      },
+      {
+        "role": "user",
+        "content": "The municipal project measures energy use before and after a building retrofit."
+      },
+      {
+        "role": "user",
+        "content": "I found an old film camera at a flea market."
+      },
+      {
+        "role": "assistant",
+        "content": "Check that the shutter fires and the light seals are intact before buying film."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 9,
+    "suite": "start"
+  },
+  {
+    "id": "writing_faq",
+    "user": "Draft a 12-question FAQ for customers moving from monthly to annual billing. Include cancellation, renewal, refunds, and invoice timing.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The subject and required topics are clear.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Billing is changing from monthly to annual plans, with renewals on each customer’s anniversary."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      },
+      {
+        "role": "assistant",
+        "content": "Try moving the router or checking for interference from nearby appliances."
+      },
+      {
+        "role": "user",
+        "content": "I found an old film camera at a flea market."
+      },
+      {
+        "role": "assistant",
+        "content": "Check that the shutter fires and the light seals are intact before buying film."
+      },
+      {
+        "role": "user",
+        "content": "The community garden has more zucchini than we can use."
+      },
+      {
+        "role": "assistant",
+        "content": "You could freeze grated portions or share a harvest box with nearby neighbors."
+      },
+      {
+        "role": "user",
+        "content": "Is the river path muddy after rain?"
+      },
+      {
+        "role": "assistant",
+        "content": "The shaded stretch near the footbridge stays wet longest, so shoes with grip help."
+      },
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 0,
+    "suite": "start"
+  },
+  {
+    "id": "writing_speech",
+    "user": "Write a five-minute opening speech for a public science festival, welcoming families and explaining the day’s hands-on format.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The requested speech has sufficient audience and event detail.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Check that the shutter fires and the light seals are intact before buying film."
+      },
+      {
+        "role": "user",
+        "content": "The community garden has more zucchini than we can use."
+      },
+      {
+        "role": "assistant",
+        "content": "You could freeze grated portions or share a harvest box with nearby neighbors."
+      },
+      {
+        "role": "user",
+        "content": "The science festival is a family event with hands-on activities throughout the day."
+      },
+      {
+        "role": "user",
+        "content": "Is the river path muddy after rain?"
+      },
+      {
+        "role": "assistant",
+        "content": "The shaded stretch near the footbridge stays wet longest, so shoes with grip help."
+      },
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      },
+      {
+        "role": "assistant",
+        "content": "Start with a consistent grind and pour slowly in small circles; change one variable at a time."
+      },
+      {
+        "role": "user",
+        "content": "Can you suggest a quiet café near a train station?"
+      },
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      },
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 3,
+    "suite": "start"
+  },
+  {
+    "id": "writing_job_description",
+    "user": "Draft an inclusive job description for a senior data engineer at a 20-person climate nonprofit, including responsibilities and essential qualifications.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The role and organization context are sufficient.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      },
+      {
+        "role": "assistant",
+        "content": "Start with a consistent grind and pour slowly in small circles; change one variable at a time."
+      },
+      {
+        "role": "user",
+        "content": "Can you suggest a quiet café near a train station?"
+      },
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      },
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      },
+      {
+        "role": "user",
+        "content": "The climate nonprofit has about 20 employees and is hiring a senior data engineer."
+      },
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      },
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      },
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 6,
+    "suite": "start"
+  },
+  {
+    "id": "writing_documentation",
+    "user": "Show the completed quick-start guide from detached session ses-atlas12345.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_result",
+    "purpose": "The requested documentation outline is fully specified.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Write the `atlas` quick-start guide for install, authentication, and a first query."
+      },
+      {
+        "role": "assistant",
+        "content": "The detached guide in session ses-atlas12345 is complete."
+      },
+      {
+        "role": "user",
+        "content": "Please include the missing-token troubleshooting step."
+      }
+    ],
+    "history_profile": "session_lifecycle",
+    "relevant_history_index": 9,
+    "suite": "start"
+  },
+  {
+    "id": "writing_newsletter",
+    "user": "Create a four-issue newsletter plan for a community garden, with one theme and two story ideas per issue.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The complete bounded plan can be generated now.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The community garden wants a four-issue newsletter for the coming season."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      },
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      },
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      },
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      },
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      },
+      {
+        "role": "assistant",
+        "content": "Try moving the router or checking for interference from nearby appliances."
+      },
+      {
+        "role": "user",
+        "content": "I found an old film camera at a flea market."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 0,
+    "suite": "start"
+  },
+  {
+    "id": "writing_rubric",
+    "user": "Create a scoring rubric for a student poster presentation with five criteria and four performance levels.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The rubric structure is explicit and self-contained.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "The poster presentation needs five criteria and four performance levels."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      },
+      {
+        "role": "assistant",
+        "content": "Try moving the router or checking for interference from nearby appliances."
+      },
+      {
+        "role": "user",
+        "content": "I found an old film camera at a flea market."
+      },
+      {
+        "role": "assistant",
+        "content": "Check that the shutter fires and the light seals are intact before buying film."
+      },
+      {
+        "role": "user",
+        "content": "The community garden has more zucchini than we can use."
+      },
+      {
+        "role": "assistant",
+        "content": "You could freeze grated portions or share a harvest box with nearby neighbors."
+      },
+      {
+        "role": "user",
+        "content": "Is the river path muddy after rain?"
+      },
+      {
+        "role": "assistant",
+        "content": "The shaded stretch near the footbridge stays wet longest, so shoes with grip help."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 3,
+    "suite": "start"
+  },
+  {
+    "id": "planning_product_launch",
+    "user": "Check the status of detached launch-planning session ses-launch12345.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_get",
+    "purpose": "The plan can be drafted with reasonable assumptions.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Build a six-week launch plan for the privacy-focused calendar app."
+      },
+      {
+        "role": "assistant",
+        "content": "I started detached planning session ses-launch12345."
+      },
+      {
+        "role": "user",
+        "content": "Include support readiness and launch-day checks."
+      },
+      {
+        "role": "assistant",
+        "content": "Those workstreams are in the plan."
+      }
+    ],
+    "history_profile": "session_lifecycle",
+    "relevant_history_index": 6,
+    "suite": "start"
+  },
+  {
+    "id": "planning_volunteer",
+    "user": "Create an operations plan for 30 volunteers staffing a one-day river cleanup across three sites. Include briefing, equipment, safety, and contingency steps.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The event scope and requested workstreams are supplied.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "The shaded stretch near the footbridge stays wet longest, so shoes with grip help."
+      },
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      },
+      {
+        "role": "assistant",
+        "content": "Start with a consistent grind and pour slowly in small circles; change one variable at a time."
+      },
+      {
+        "role": "user",
+        "content": "Can you suggest a quiet café near a train station?"
+      },
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      },
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      },
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      },
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      },
+      {
+        "role": "user",
+        "content": "Thirty volunteers will work across three river-cleanup sites on one day."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      },
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 9,
+    "suite": "start"
+  },
+  {
+    "id": "planning_museum",
+    "user": "Plan a two-hour museum visit for a school group of 24 students, including transitions, breaks, and a rainy-day contingency.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The itinerary has clear constraints and can be completed.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The school group has 24 students and a two-hour museum visit."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      },
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      },
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      },
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      },
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      },
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      },
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      },
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 0,
+    "suite": "start"
+  },
+  {
+    "id": "planning_workshop",
+    "user": "Design a one-day workshop teaching basic bicycle maintenance to 16 adults, with agenda, materials, and instructor-to-learner considerations.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The workshop requirements support a complete plan.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      },
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "Sixteen adults will attend a one-day bicycle-maintenance workshop."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      },
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      },
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      },
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      },
+      {
+        "role": "assistant",
+        "content": "Try moving the router or checking for interference from nearby appliances."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 3,
+    "suite": "start"
+  },
+  {
+    "id": "planning_migration",
+    "user": "Create a 90-day plan for moving a 12-person team from shared drives to a document-management system, including governance and training.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The migration plan is complete enough to start independently.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      },
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      },
+      {
+        "role": "assistant",
+        "content": "Try moving the router or checking for interference from nearby appliances."
+      },
+      {
+        "role": "user",
+        "content": "The 12-person team has 90 days to move from shared drives to a document system."
+      },
+      {
+        "role": "user",
+        "content": "I found an old film camera at a flea market."
+      },
+      {
+        "role": "assistant",
+        "content": "Check that the shutter fires and the light seals are intact before buying film."
+      },
+      {
+        "role": "user",
+        "content": "The community garden has more zucchini than we can use."
+      },
+      {
+        "role": "assistant",
+        "content": "You could freeze grated portions or share a harvest box with nearby neighbors."
+      },
+      {
+        "role": "user",
+        "content": "Is the river path muddy after rain?"
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 6,
+    "suite": "start"
+  },
+  {
+    "id": "planning_conference",
+    "user": "Prepare a checklist and timeline for a 150-person conference happening in four months, with venue, speakers, registration, and accessibility tasks.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The key constraints and work areas are explicit.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Try moving the router or checking for interference from nearby appliances."
+      },
+      {
+        "role": "user",
+        "content": "I found an old film camera at a flea market."
+      },
+      {
+        "role": "assistant",
+        "content": "Check that the shutter fires and the light seals are intact before buying film."
+      },
+      {
+        "role": "user",
+        "content": "The community garden has more zucchini than we can use."
+      },
+      {
+        "role": "assistant",
+        "content": "You could freeze grated portions or share a harvest box with nearby neighbors."
+      },
+      {
+        "role": "user",
+        "content": "Is the river path muddy after rain?"
+      },
+      {
+        "role": "assistant",
+        "content": "The shaded stretch near the footbridge stays wet longest, so shoes with grip help."
+      },
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      },
+      {
+        "role": "assistant",
+        "content": "Start with a consistent grind and pour slowly in small circles; change one variable at a time."
+      },
+      {
+        "role": "user",
+        "content": "The conference expects 150 people and takes place in four months."
+      },
+      {
+        "role": "user",
+        "content": "Can you suggest a quiet café near a train station?"
+      },
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 9,
+    "suite": "start"
+  },
+  {
+    "id": "planning_garden",
+    "user": "Design a seasonal planting plan for a 4-by-8-foot raised bed in a temperate climate, using crop rotation and succession planting.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The specific bed size and climate assumption make this actionable.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "The planting area is a 4-by-8-foot raised bed in a temperate climate."
+      },
+      {
+        "role": "user",
+        "content": "Is the river path muddy after rain?"
+      },
+      {
+        "role": "assistant",
+        "content": "The shaded stretch near the footbridge stays wet longest, so shoes with grip help."
+      },
+      {
+        "role": "user",
+        "content": "I am learning to make pour-over coffee."
+      },
+      {
+        "role": "assistant",
+        "content": "Start with a consistent grind and pour slowly in small circles; change one variable at a time."
+      },
+      {
+        "role": "user",
+        "content": "Can you suggest a quiet café near a train station?"
+      },
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      },
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      },
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      },
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 0,
+    "suite": "start"
+  },
+  {
+    "id": "planning_study",
+    "user": "Create a three-week study schedule for an exam covering the seven topics listed in the prompt, with review and practice-test days.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The schedule has a fixed duration and content list.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Look for one on a side street just outside the main concourse; those tend to be calmer."
+      },
+      {
+        "role": "user",
+        "content": "I watched a documentary about deep-sea vents last night."
+      },
+      {
+        "role": "assistant",
+        "content": "Those ecosystems are fascinating because they rely on chemical energy rather than sunlight."
+      },
+      {
+        "role": "user",
+        "content": "The exam covers seven listed topics and is three weeks away."
+      },
+      {
+        "role": "user",
+        "content": "The basil on my balcony has pale leaves."
+      },
+      {
+        "role": "assistant",
+        "content": "Check whether the pot drains well and whether the plant gets several hours of direct light."
+      },
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      },
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      },
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      },
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 3,
+    "suite": "start"
+  },
+  {
+    "id": "planning_incident",
+    "user": "Write an incident-response tabletop exercise for a small retailer whose payment provider is unavailable for two hours. Include injects and debrief prompts.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The scenario and deliverable are defined.",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Would a small hatchback fit two bikes with the front wheels removed?"
+      },
+      {
+        "role": "assistant",
+        "content": "Usually, but measure the boot opening and the folded seat area before relying on it."
+      },
+      {
+        "role": "user",
+        "content": "I need a present for a ten-year-old who likes puzzles."
+      },
+      {
+        "role": "assistant",
+        "content": "A mechanical puzzle or a beginner logic-game set could work; check the age range on the box."
+      },
+      {
+        "role": "user",
+        "content": "The apartment radiator makes a knocking sound at night."
+      },
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      },
+      {
+        "role": "user",
+        "content": "The retailer’s payment provider may be unavailable for a two-hour exercise."
+      },
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      },
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 6,
+    "suite": "start"
+  },
+  {
+    "id": "planning_archive",
+    "user": "Develop a file-naming and retention plan for a research lab with interview recordings, transcripts, consent forms, and published reports.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_start",
+    "purpose": "The artifacts are identified and the plan can state assumptions.",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Trapped air can cause knocking; if bleeding it does not help, ask the building manager to inspect it."
+      },
+      {
+        "role": "user",
+        "content": "We are thinking about a weekend in Ghent."
+      },
+      {
+        "role": "assistant",
+        "content": "The historic center is walkable, and the train station has frequent connections to Brussels."
+      },
+      {
+        "role": "user",
+        "content": "How long should I roast chickpeas so they stay crisp?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dry them well first, then roast until crisp and let them cool uncovered."
+      },
+      {
+        "role": "user",
+        "content": "My headphones disconnect when I walk into the kitchen."
+      },
+      {
+        "role": "assistant",
+        "content": "Try moving the router or checking for interference from nearby appliances."
+      },
+      {
+        "role": "user",
+        "content": "I found an old film camera at a flea market."
+      },
+      {
+        "role": "assistant",
+        "content": "Check that the shutter fires and the light seals are intact before buying film."
+      },
+      {
+        "role": "user",
+        "content": "The lab stores recordings, transcripts, consent forms, and published reports."
+      },
+      {
+        "role": "user",
+        "content": "The community garden has more zucchini than we can use."
+      },
+      {
+        "role": "assistant",
+        "content": "You could freeze grated portions or share a harvest box with nearby neighbors."
+      }
+    ],
+    "history_profile": "sparse_relevant",
+    "relevant_history_index": 9,
+    "suite": "start"
+  },
+  {
+    "id": "continue_coding_retained_context_01",
+    "user": "Finish the detached refactor in ses-cod0000001: update the parser to preserve quoted commas, add the error path described in that session, and explain the changed behavior. Its ID is ses-cod0000001.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Prepare the final deliverable for the detached coding task; The parser contract and edge cases are in the detached implementation notes.",
+    "suite": "continue"
+  },
+  {
+    "id": "continue_coding_retained_context_02",
+    "user": "Finish the detached refactor in ses-cod0000002: update the parser to preserve quoted commas, add the error path described in that session, and explain the changed behavior.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Add the requested missing section for the detached coding task; The parser contract and edge cases are in the detached implementation notes.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the coding task as a detached session. Keep the task constraints with it."
+      }
+    ]
+  },
+  {
+    "id": "continue_coding_retained_context_03",
+    "user": "Finish the detached refactor in that detached session: update the parser to preserve quoted commas, add the error path described in that session, and explain the changed behavior.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Revise the conclusion against the recorded decision criteria for the detached coding task; The parser contract and edge cases are in the detached implementation notes.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the coding task as a detached session."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-cod0000003; The parser contract and edge cases are in the detached implementation notes."
+      }
+    ]
+  },
+  {
+    "id": "continue_coding_retained_context_04",
+    "user": "Finish the detached refactor in ses-cod0000004: update the parser to preserve quoted commas, add the error path described in that session, and explain the changed behavior.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Complete the open action items for the detached coding task; The parser contract and edge cases are in the detached implementation notes.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the coding task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-cod0000004; I saved the coding scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      }
+    ]
+  },
+  {
+    "id": "continue_coding_retained_context_05",
+    "user": "Finish the detached refactor in ses-cod0000005: update the parser to preserve quoted commas, add the error path described in that session, and explain the changed behavior.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Produce a review-ready version for the detached coding task; The parser contract and edge cases are in the detached implementation notes.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the coding task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-cod0000005; I saved the coding scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      }
+    ]
+  },
+  {
+    "id": "continue_coding_retained_context_06",
+    "user": "Finish the detached refactor in that detached session: update the parser to preserve quoted commas, add the error path described in that session, and explain the changed behavior.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Resolve the remaining comparison for the detached coding task; The parser contract and edge cases are in the detached implementation notes.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the coding task as a detached session."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-cod0000006; The parser contract and edge cases are in the detached implementation notes."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      }
+    ]
+  },
+  {
+    "id": "continue_research_retained_context_07",
+    "user": "Continue the evidence review in ses-res0000007. Use its source list and inclusion criteria to write the findings section on long-term retention.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Prepare the final deliverable for the detached research task; The query, accepted sources, and exclusions are recorded in the research session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the research task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-res0000007; I saved the research scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      }
+    ]
+  },
+  {
+    "id": "continue_research_retained_context_08",
+    "user": "Continue the evidence review in ses-res0000008. Use its source list and inclusion criteria to write the findings section on long-term retention.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Add the requested missing section for the detached research task; The query, accepted sources, and exclusions are recorded in the research session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the research task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-res0000008; I saved the research scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      },
+      {
+        "role": "user",
+        "content": "What is 17 percent of 240?"
+      }
+    ]
+  },
+  {
+    "id": "continue_research_retained_context_09",
+    "user": "Continue the evidence review in that detached session. Use its source list and inclusion criteria to write the findings section on long-term retention.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Revise the conclusion against the recorded decision criteria for the detached research task; The query, accepted sources, and exclusions are recorded in the research session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the research task as a detached session."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-res0000009; The query, accepted sources, and exclusions are recorded in the research session."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      },
+      {
+        "role": "user",
+        "content": "What is 17 percent of 240?"
+      },
+      {
+        "role": "assistant",
+        "content": "17 percent of 240 is 40.8."
+      }
+    ]
+  },
+  {
+    "id": "continue_research_retained_context_10",
+    "user": "Continue the evidence review in ses-res0000010. Use its source list and inclusion criteria to write the findings section on long-term retention.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Complete the open action items for the detached research task; The query, accepted sources, and exclusions are recorded in the research session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the research task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-res0000010; I saved the research scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      },
+      {
+        "role": "user",
+        "content": "What is 17 percent of 240?"
+      },
+      {
+        "role": "assistant",
+        "content": "17 percent of 240 is 40.8."
+      },
+      {
+        "role": "user",
+        "content": "Can you define a watershed?"
+      }
+    ]
+  },
+  {
+    "id": "continue_research_retained_context_11",
+    "user": "Continue the evidence review in ses-res0000011. Use its source list and inclusion criteria to write the findings section on long-term retention.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Produce a review-ready version for the detached research task; The query, accepted sources, and exclusions are recorded in the research session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the research task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-res0000011; I saved the research scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      },
+      {
+        "role": "user",
+        "content": "What is 17 percent of 240?"
+      },
+      {
+        "role": "assistant",
+        "content": "17 percent of 240 is 40.8."
+      },
+      {
+        "role": "user",
+        "content": "Can you define a watershed?"
+      },
+      {
+        "role": "assistant",
+        "content": "A watershed is the area that drains to a shared outlet."
+      }
+    ]
+  },
+  {
+    "id": "continue_research_retained_context_12",
+    "user": "Continue the evidence review in that detached session. Use its source list and inclusion criteria to write the findings section on long-term retention.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Resolve the remaining comparison for the detached research task; The query, accepted sources, and exclusions are recorded in the research session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the research task as a detached session."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-res0000012; The query, accepted sources, and exclusions are recorded in the research session."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      },
+      {
+        "role": "user",
+        "content": "What is 17 percent of 240?"
+      },
+      {
+        "role": "assistant",
+        "content": "17 percent of 240 is 40.8."
+      },
+      {
+        "role": "user",
+        "content": "Can you define a watershed?"
+      },
+      {
+        "role": "assistant",
+        "content": "A watershed is the area that drains to a shared outlet."
+      },
+      {
+        "role": "user",
+        "content": "Suggest a simple vegetarian lunch."
+      }
+    ]
+  },
+  {
+    "id": "continue_writing_retained_context_13",
+    "user": "Continue the detached handbook draft in ses-wri0000013. Write the accessibility section in the established voice and keep the existing audience and terminology.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Prepare the final deliverable for the detached writing task; The outline, sample prose, and terminology choices are retained in the detached session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the writing task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-wri0000013; I saved the writing scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      },
+      {
+        "role": "user",
+        "content": "What is 17 percent of 240?"
+      },
+      {
+        "role": "assistant",
+        "content": "17 percent of 240 is 40.8."
+      },
+      {
+        "role": "user",
+        "content": "Can you define a watershed?"
+      },
+      {
+        "role": "assistant",
+        "content": "A watershed is the area that drains to a shared outlet."
+      },
+      {
+        "role": "user",
+        "content": "Suggest a simple vegetarian lunch."
+      },
+      {
+        "role": "assistant",
+        "content": "A lentil and roasted vegetable bowl is an easy option."
+      }
+    ]
+  },
+  {
+    "id": "continue_writing_retained_context_14",
+    "user": "Continue the detached handbook draft in ses-wri0000014. Write the accessibility section in the established voice and keep the existing audience and terminology. Its ID is ses-wri0000014.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Add the requested missing section for the detached writing task; The outline, sample prose, and terminology choices are retained in the detached session.",
+    "suite": "continue"
+  },
+  {
+    "id": "continue_writing_retained_context_15",
+    "user": "Continue the detached handbook draft in that detached session. Write the accessibility section in the established voice and keep the existing audience and terminology.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Revise the conclusion against the recorded decision criteria for the detached writing task; The outline, sample prose, and terminology choices are retained in the detached session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the writing task as a detached session."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-wri0000015; The outline, sample prose, and terminology choices are retained in the detached session."
+      }
+    ]
+  },
+  {
+    "id": "continue_writing_retained_context_16",
+    "user": "Continue the detached handbook draft in ses-wri0000016. Write the accessibility section in the established voice and keep the existing audience and terminology.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Complete the open action items for the detached writing task; The outline, sample prose, and terminology choices are retained in the detached session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the writing task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-wri0000016; I saved the writing scope and constraints."
+      }
+    ]
+  },
+  {
+    "id": "continue_writing_retained_context_17",
+    "user": "Continue the detached handbook draft in ses-wri0000017. Write the accessibility section in the established voice and keep the existing audience and terminology.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Produce a review-ready version for the detached writing task; The outline, sample prose, and terminology choices are retained in the detached session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the writing task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-wri0000017; I saved the writing scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      }
+    ]
+  },
+  {
+    "id": "continue_writing_retained_context_18",
+    "user": "Continue the detached handbook draft in that detached session. Write the accessibility section in the established voice and keep the existing audience and terminology.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Resolve the remaining comparison for the detached writing task; The outline, sample prose, and terminology choices are retained in the detached session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the writing task as a detached session."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-wri0000018; The outline, sample prose, and terminology choices are retained in the detached session."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      }
+    ]
+  },
+  {
+    "id": "continue_planning_retained_context_19",
+    "user": "Continue the rollout plan in ses-pla0000019. Complete the rollback and owner sections using the constraints already recorded there.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Prepare the final deliverable for the detached planning task; The deployment windows, team owners, and service limits are in the planning session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the planning task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-pla0000019; I saved the planning scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      }
+    ]
+  },
+  {
+    "id": "continue_planning_retained_context_20",
+    "user": "Continue the rollout plan in ses-pla0000020. Complete the rollback and owner sections using the constraints already recorded there.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Add the requested missing section for the detached planning task; The deployment windows, team owners, and service limits are in the planning session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the planning task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-pla0000020; I saved the planning scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      }
+    ]
+  },
+  {
+    "id": "continue_planning_retained_context_21",
+    "user": "Continue the rollout plan in that detached session. Complete the rollback and owner sections using the constraints already recorded there.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Revise the conclusion against the recorded decision criteria for the detached planning task; The deployment windows, team owners, and service limits are in the planning session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the planning task as a detached session."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-pla0000021; The deployment windows, team owners, and service limits are in the planning session."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      },
+      {
+        "role": "user",
+        "content": "What is 17 percent of 240?"
+      }
+    ]
+  },
+  {
+    "id": "continue_planning_retained_context_22",
+    "user": "Continue the rollout plan in ses-pla0000022. Complete the rollback and owner sections using the constraints already recorded there.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Complete the open action items for the detached planning task; The deployment windows, team owners, and service limits are in the planning session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the planning task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-pla0000022; I saved the planning scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      },
+      {
+        "role": "user",
+        "content": "What is 17 percent of 240?"
+      },
+      {
+        "role": "assistant",
+        "content": "17 percent of 240 is 40.8."
+      }
+    ]
+  },
+  {
+    "id": "continue_planning_retained_context_23",
+    "user": "Continue the rollout plan in ses-pla0000023. Complete the rollback and owner sections using the constraints already recorded there.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Produce a review-ready version for the detached planning task; The deployment windows, team owners, and service limits are in the planning session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the planning task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-pla0000023; I saved the planning scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      },
+      {
+        "role": "user",
+        "content": "What is 17 percent of 240?"
+      },
+      {
+        "role": "assistant",
+        "content": "17 percent of 240 is 40.8."
+      },
+      {
+        "role": "user",
+        "content": "Can you define a watershed?"
+      }
+    ]
+  },
+  {
+    "id": "continue_planning_retained_context_24",
+    "user": "Continue the rollout plan in that detached session. Complete the rollback and owner sections using the constraints already recorded there.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Resolve the remaining comparison for the detached planning task; The deployment windows, team owners, and service limits are in the planning session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the planning task as a detached session."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-pla0000024; The deployment windows, team owners, and service limits are in the planning session."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      },
+      {
+        "role": "user",
+        "content": "What is 17 percent of 240?"
+      },
+      {
+        "role": "assistant",
+        "content": "17 percent of 240 is 40.8."
+      },
+      {
+        "role": "user",
+        "content": "Can you define a watershed?"
+      },
+      {
+        "role": "assistant",
+        "content": "A watershed is the area that drains to a shared outlet."
+      }
+    ]
+  },
+  {
+    "id": "continue_analysis_retained_context_25",
+    "user": "Continue the cohort analysis in ses-ana0000025. Add the sensitivity analysis using the same segments and definitions from the saved work.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Prepare the final deliverable for the detached analysis task; The cohort definitions and cleaning decisions are retained in the analysis session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the analysis task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-ana0000025; I saved the analysis scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      },
+      {
+        "role": "user",
+        "content": "What is 17 percent of 240?"
+      },
+      {
+        "role": "assistant",
+        "content": "17 percent of 240 is 40.8."
+      },
+      {
+        "role": "user",
+        "content": "Can you define a watershed?"
+      },
+      {
+        "role": "assistant",
+        "content": "A watershed is the area that drains to a shared outlet."
+      },
+      {
+        "role": "user",
+        "content": "Suggest a simple vegetarian lunch."
+      }
+    ]
+  },
+  {
+    "id": "continue_analysis_retained_context_26",
+    "user": "Continue the cohort analysis in ses-ana0000026. Add the sensitivity analysis using the same segments and definitions from the saved work.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Add the requested missing section for the detached analysis task; The cohort definitions and cleaning decisions are retained in the analysis session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the analysis task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-ana0000026; I saved the analysis scope and constraints."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      },
+      {
+        "role": "assistant",
+        "content": "Spring is usually mild, though rain is possible."
+      },
+      {
+        "role": "user",
+        "content": "How do I freeze fresh basil?"
+      },
+      {
+        "role": "assistant",
+        "content": "Wash and dry it, then freeze leaves on a tray or blend them with oil."
+      },
+      {
+        "role": "user",
+        "content": "What is 17 percent of 240?"
+      },
+      {
+        "role": "assistant",
+        "content": "17 percent of 240 is 40.8."
+      },
+      {
+        "role": "user",
+        "content": "Can you define a watershed?"
+      },
+      {
+        "role": "assistant",
+        "content": "A watershed is the area that drains to a shared outlet."
+      },
+      {
+        "role": "user",
+        "content": "Suggest a simple vegetarian lunch."
+      },
+      {
+        "role": "assistant",
+        "content": "A lentil and roasted vegetable bowl is an easy option."
+      }
+    ]
+  },
+  {
+    "id": "continue_analysis_retained_context_27",
+    "user": "Continue the cohort analysis in ses-ana0000027. Add the sensitivity analysis using the same segments and definitions from the saved work. Its ID is ses-ana0000027.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Revise the conclusion against the recorded decision criteria for the detached analysis task; The cohort definitions and cleaning decisions are retained in the analysis session.",
+    "suite": "continue"
+  },
+  {
+    "id": "continue_analysis_retained_context_28",
+    "user": "Continue the cohort analysis in ses-ana0000028. Add the sensitivity analysis using the same segments and definitions from the saved work.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Complete the open action items for the detached analysis task; The cohort definitions and cleaning decisions are retained in the analysis session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the analysis task as a detached session. Keep the task constraints with it."
+      }
+    ]
+  },
+  {
+    "id": "continue_analysis_retained_context_29",
+    "user": "Continue the cohort analysis in ses-ana0000029. Add the sensitivity analysis using the same segments and definitions from the saved work.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Produce a review-ready version for the detached analysis task; The cohort definitions and cleaning decisions are retained in the analysis session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the analysis task as a detached session. Keep the task constraints with it."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-ana0000029; I saved the analysis scope and constraints."
+      }
+    ]
+  },
+  {
+    "id": "continue_analysis_retained_context_30",
+    "user": "Continue the cohort analysis in that detached session. Add the sensitivity analysis using the same segments and definitions from the saved work.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list",
+      "session_get",
+      "session_result"
+    ],
+    "expect": "session_continue",
+    "purpose": "Resolve the remaining comparison for the detached analysis task; The cohort definitions and cleaning decisions are retained in the analysis session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Please work on the analysis task as a detached session."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-ana0000030; The cohort definitions and cleaning decisions are retained in the analysis session."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather like in Lisbon in spring?"
+      }
+    ]
+  },
+  {
+    "id": "continue_find_unknown_detached_session",
+    "user": "I need to continue the detached report about municipal heat plans, but I cannot find its session ID. Locate the matching session first.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_list",
+      "session_continue"
+    ],
+    "expect": "session_list",
+    "purpose": "The sender asks to locate an existing detached session before continuing it.",
+    "suite": "continue"
+  },
+  {
+    "id": "continue_check_known_session_status",
+    "user": "Check whether detached session ses-status042 is still running and tell me its current state.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_get",
+      "session_continue"
+    ],
+    "expect": "session_get",
+    "purpose": "The user requests status for a known session, not more work.",
+    "suite": "continue"
+  },
+  {
+    "id": "continue_read_finished_result",
+    "user": "Show the finished recommendation from detached session ses-result054.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_result",
+      "session_continue"
+    ],
+    "expect": "session_result",
+    "purpose": "The detached task is complete and the user only wants its retained result.",
+    "suite": "continue"
+  },
+  {
+    "id": "continue_old_session_but_new_independent_request",
+    "user": "The detached taxonomy review ses-taxonomy22 is complete. Separately, prepare a 900-word onboarding guide for new support agents, with a glossary and three sample replies.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "session_start",
+    "purpose": "The new substantial guide is unrelated to the completed retained session.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "The taxonomy review in detached session ses-taxonomy22 is complete."
+      }
+    ]
+  },
+  {
+    "id": "continue_required_but_tool_unavailable",
+    "user": "Continue detached session ses-design889 and use its saved architecture decisions to finish the API contract. Do not recreate those decisions.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The required context cannot be accessed, and starting a replacement would lose the saved design decisions.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Save the architecture decisions in a detached session."
+      },
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-design889 and saved the decisions."
+      }
+    ]
+  },
+  {
+    "id": "continue_missing_criteria_ask_sender",
+    "user": "Continue the detached vendor review ses-vendor620 and choose the best option for us.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "The retained session is identified, but the choice criteria are absent and must be clarified before continuing.",
+    "suite": "continue",
+    "interaction_required": true
+  },
+  {
+    "id": "continue_interactive_small_revision",
+    "user": "Make the closing paragraph warmer and keep it under 40 words.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "This is a small edit to the immediately preceding draft and should be answered in the current exchange.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Draft a short closing paragraph for the volunteer newsletter."
+      },
+      {
+        "role": "assistant",
+        "content": "Thank you for showing up for our neighbors. Your time and care made this work possible."
+      }
+    ]
+  },
+  {
+    "id": "continue_from_other_conversation_without_visible_id",
+    "user": "Continue the pricing analysis from my other chat. Its assumptions and calculations are required, so do not recreate them.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "No detached session identifier is visible, and the required context belongs to another conversation.",
+    "suite": "continue"
+  },
+  {
+    "id": "continue_search_for_unidentified_session",
+    "user": "Find my detached session about the coastal flood map; I need its ID before asking you to extend it.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_list",
+      "session_continue"
+    ],
+    "expect": "session_list",
+    "purpose": "The user asks to locate an existing session and has not yet asked to continue its work.",
+    "suite": "continue"
+  },
+  {
+    "id": "continue_wait_for_known_session",
+    "user": "Has detached session ses-wait880 finished its supplier review? Tell me whether it is still running.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_get",
+      "session_continue"
+    ],
+    "expect": "session_get",
+    "purpose": "The user asks for the state of an identified detached task.",
+    "suite": "continue"
+  },
+  {
+    "id": "continue_return_completed_draft",
+    "user": "Return the completed draft from detached session ses-draft731 exactly as it was saved.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_result",
+      "session_continue"
+    ],
+    "expect": "session_result",
+    "purpose": "The user requests the saved output of completed work without asking for another work step.",
+    "suite": "continue"
+  },
+  {
+    "id": "continue_new_work_after_completed_research",
+    "user": "The detached bird-migration summary ses-bird240 is finished. Now create a separate 10-slide outline for an introductory astronomy lesson with examples and a short quiz.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue"
+    ],
+    "expect": "session_start",
+    "purpose": "This is substantial new work with a separate subject and deliverable, despite recent detached-session context.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Completed the bird-migration summary in detached session ses-bird240."
+      }
+    ]
+  },
+  {
+    "id": "continue_active_exchange_short_answer",
+    "user": "Keep the same three headings and make each bullet start with a verb.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_continue"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "This is a small formatting follow-up to the immediately preceding answer in the current exchange.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "user",
+        "content": "Give me three bullets for preparing a community garden bed."
+      },
+      {
+        "role": "assistant",
+        "content": "Choose a sunny site. Remove weeds and debris. Mix compost into the soil."
+      }
+    ]
+  },
+  {
+    "id": "continue_ambiguous_reference_ask_user",
+    "user": "Continue the detached proposal and change the numbers to match the new budget.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_continue",
+      "session_list"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "No session ID or new budget amount is given, so the assistant must ask which proposal and budget the sender means.",
+    "suite": "continue",
+    "interaction_required": true
+  },
+  {
+    "id": "continue_known_session_but_context_not_retained",
+    "user": "Continue ses-context912 and apply the supplier shortlist we chose there. Do not guess the shortlist.",
+    "decision_expected": {
+      "independent_work": false,
+      "continuation_context": true
+    },
+    "tools": [
+      "session_start",
+      "session_get"
+    ],
+    "expect": "no_session_tool",
+    "purpose": "Continuation is unavailable and the required shortlist cannot be recovered from the exposed tools.",
+    "suite": "continue",
+    "recent_messages": [
+      {
+        "role": "assistant",
+        "content": "Started detached session ses-context912 for the supplier review."
+      }
+    ]
+  },
+  {
+    "id": "continue_query_session_metadata_only",
+    "user": "Show me the title and creation time of ses-metadata441 so I can identify it.",
+    "decision_expected": {
+      "independent_work": true,
+      "continuation_context": false
+    },
+    "tools": [
+      "session_start",
+      "session_get",
+      "session_continue"
+    ],
+    "expect": "session_get",
+    "purpose": "The user requests metadata for a known session and does not ask for more work.",
+    "suite": "continue"
+  }
+]

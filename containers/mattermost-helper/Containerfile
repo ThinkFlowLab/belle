@@ -1,0 +1,17 @@
+# Belle's Mattermost setup on Python's standard library. Build from the repository root:
+#   podman build --format oci -t localhost/belle:mattermost-helper-local -f containers/mattermost-helper/Containerfile \
+#     --ignorefile containers/mattermost-helper/.containerignore .
+
+FROM docker.io/library/python:3.12-alpine@sha256:1b668429b3511ab407d8e00648891631b0b1a4d7e15e3ca70f38ab5b91ad4ab4
+LABEL org.opencontainers.image.title="belle-mattermost-helper" \
+      org.opencontainers.image.description="Sets up the bot account, its token and the slash command of Belle on a Mattermost server" \
+      org.opencontainers.image.base.name="docker.io/library/python:3.12-alpine"
+RUN adduser -D -u 10001 -h /home/belle belle \
+ && install -d -o 10001 -g 10001 -m 0700 /out \
+ && install -d -m 0755 /secrets
+COPY containers/mattermost-helper/belle-mattermost-setup /usr/local/bin/belle-mattermost-setup
+COPY LICENSE NOTICE /usr/share/licenses/belle-agent/
+USER 10001:10001
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /out
+ENTRYPOINT ["belle-mattermost-setup"]

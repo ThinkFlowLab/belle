@@ -1,0 +1,320 @@
+#!/usr/bin/env python3
+"""Set up Belle's bot on a Mattermost server over the REST API v4.
+
+belle-mattermost-setup --url <server> --team <team> --listener <url> [--channel <name>]...
+      [--bot-name <name>]
+
+Reads the admin's personal access token from MATTERMOST_ADMIN_TOKEN in
+/secrets/admin.env. Makes what is missing and keeps what exists: the bot
+account, its access token, its team and channel memberships, and the /belle
+slash command. Writes /out/mattermost.env, mode 600. The admin token is never
+printed or written.
+"""
+
+import argparse
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+ADMIN_ENV = "/secrets/admin.env"
+OUT = "/out/mattermost.env"
+TRIGGER = "belle"
+NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
+
+# Server error ids that name a setting or a permission.
+HINTS = {
+    "api.bot.create_disabled": "Bot account creation is off. Set System Console > Integrations > "
+    "Bot Accounts > Enable Bot Account Creation (ServiceSettings.EnableBotAccountCreation) to true.",
+    "api.command.disabled.app_error": "Custom slash commands are off. Set System Console > Integrations > "
+    "Integration Management > Enable Custom Slash Commands (ServiceSettings.EnableCommands) to true.",
+    "api.context.permissions.app_error": "The admin account lacks the permission for this step. "
+    "The bot account and its token need a system admin. "
+    "The memberships and the slash command need a system admin or a team admin of the team.",
+    "api.context.session_expired.app_error": "The server refused the admin token. Check MATTERMOST_ADMIN_TOKEN "
+    "in the admin env file. The server refuses every personal access token while System Console > Integrations > "
+    "Integration Management > Enable Personal Access Tokens (ServiceSettings.EnableUserAccessTokens) is false.",
+}
+
+
+class Refused(Exception):
+    def __init__(self, status: int, error_id: str, message: str):
+        super().__init__(f"{status} {error_id}: {message}")
+        self.status, self.error_id = status, error_id
+
+
+class Step(Exception):
+    pass
+
+
+class Server:
+    def __init__(self, url: str, token: str):
+        self.base, self._token = url + "/api/v4", token
+
+    def call(self, method: str, path: str, body: object = None) -> object:
+        request = urllib.request.Request(
+            self.base + path,
+            method=method,
+            data=None if body is None else json.dumps(body).encode(),
+            headers={"Authorization": f"Bearer {self._token}", "Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=30) as reply:
+                return json.loads(reply.read() or b"null")
+        except urllib.error.HTTPError as error:
+            try:
+                detail = json.loads(error.read())
+            except ValueError:
+                detail = {}
+            raise Refused(
+                error.code, detail.get("id", "no error id"), detail.get("message", error.reason).rstrip(".")
+            ) from None
+
+    def find(self, path: str) -> object | None:
+        try:
+            return self.call("GET", path)
+        except Refused as error:
+            if error.status == 404:
+                return None
+            raise
+
+
+def step(name: str, action, *args):
+    try:
+        result = action(*args)
+    except Refused as error:
+        hint = HINTS.get(error.error_id, "")
+        raise Step(f"{name}: the server refused it: {error}. {hint}".rstrip()) from None
+    except urllib.error.URLError as error:
+        raise Step(f"{name}: no answer from the server: {error.reason}") from None
+    return result
+
+
+def url_arg(flag: str):
+    def parse(value: str) -> str:
+        parts = urllib.parse.urlsplit(value)
+        if parts.scheme not in ("http", "https") or not parts.hostname or parts.query or parts.fragment:
+            raise argparse.ArgumentTypeError(
+                f"{flag} takes an http or https URL with a host, such as https://chat.example.com, not {value!r}"
+            )
+        return value.rstrip("/")
+
+    return parse
+
+
+def name_arg(flag: str):
+    def parse(value: str) -> str:
+        if not NAME.match(value):
+            raise argparse.ArgumentTypeError(
+                f"{flag} takes a Mattermost name: lower-case letters, digits, '.', '_' or '-', not {value!r}"
+            )
+        return value
+
+    return parse
+
+
+def read_env(path: str) -> dict[str, str]:
+    values = {}
+    with open(path, encoding="utf-8") as lines:
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                values[key.strip()] = value.strip()
+    return values
+
+
+def setup(args) -> None:
+    try:
+        token = read_env(ADMIN_ENV).get("MATTERMOST_ADMIN_TOKEN", "")
+    except OSError as error:
+        raise Step(f"admin token: cannot read {ADMIN_ENV}: {error.strerror}. Mount the admin env file there") from None
+    if not token:
+        raise Step(f"admin token: {ADMIN_ENV} has no MATTERMOST_ADMIN_TOKEN=<token> line")
+    admin = Server(args.url, token)
+    del token
+
+    me = step("admin token", lambda: admin.call("GET", "/users/me"))
+    print(f"admin: {me['username']}")
+
+    team = step("team", lambda: admin.find(f"/teams/name/{args.team}"))
+    if team is None:
+        raise Step(f"team: no team named {args.team!r} that the admin can see")
+
+    bot = step("bot account", lambda: admin.find(f"/users/username/{args.bot_name}"))
+    if bot is None:
+        bot = step(
+            "bot account",
+            lambda: admin.call(
+                "POST",
+                "/bots",
+                {"username": args.bot_name, "display_name": "Belle", "description": "Belle, a chat agent"},
+            ),
+        )
+        bot_id = bot["user_id"]
+        print(f"bot {args.bot_name}: created")
+    elif not bot.get("is_bot"):
+        raise Step(f"bot account: {args.bot_name!r} is a user account, not a bot. Give another --bot-name")
+    else:
+        bot_id = bot["id"]
+        if bot.get("delete_at"):
+            step("bot account", lambda: admin.call("POST", f"/bots/{bot_id}/enable"))
+            print(f"bot {args.bot_name}: enabled again")
+        else:
+            print(f"bot {args.bot_name}: exists")
+
+    old = read_env(OUT) if os.path.exists(OUT) else {}
+    bot_token = old.get("MATTERMOST_BOT_TOKEN", "")
+    if bot_token and step("bot token", lambda: _token_user(args.url, bot_token)) == bot_id:
+        print("bot token: the one in mattermost.env works, kept")
+    else:
+        reply = step("bot token", admin.call, "POST", f"/users/{bot_id}/tokens", {"description": "Belle"})
+        bot_token = reply["token"]
+        print("bot token: created")
+
+    tid = team["id"]
+    _join(
+        admin,
+        f"team {args.team}",
+        f"/teams/{tid}/members/{bot_id}",
+        f"/teams/{tid}/members",
+        {"team_id": tid, "user_id": bot_id},
+    )
+    for name in args.channel:
+        label = f"channel {name}"
+        channel = step(label, admin.find, f"/teams/{tid}/channels/name/{name}")
+        if channel is None:
+            raise Step(f"{label}: no channel named {name!r} in team {args.team!r} that the admin can see")
+        cid = channel["id"]
+        _join(admin, label, f"/channels/{cid}/members/{bot_id}", f"/channels/{cid}/members", {"user_id": bot_id})
+
+    command_token = _command(admin, tid, args.listener + "/command")
+    _note_allow_list(admin, args.listener)
+
+    content = (
+        f"MATTERMOST_URL={args.url}\nMATTERMOST_BOT_TOKEN={bot_token}\n"
+        f"MATTERMOST_COMMAND_TOKEN={command_token}\nMATTERMOST_ACTIONS_URL={args.listener}\n"
+    )
+    if old and _read(OUT) == content:
+        print(f"{OUT}: unchanged")
+        return
+    temporary = OUT + ".tmp"
+    with os.fdopen(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as out:
+        out.write(content)
+    os.replace(temporary, OUT)
+    print(f"wrote {OUT}")
+
+
+def _read(path: str) -> str:
+    with open(path, encoding="utf-8") as text:
+        return text.read()
+
+
+def _join(admin: Server, label: str, member: str, members: str, body: dict) -> None:
+    """Add the bot where it is not a member. An add of a member changes nothing."""
+
+    def look():
+        try:
+            return admin.find(member)
+        except Refused as error:
+            # A team admin cannot read the members of a channel it is not in, but can add to it.
+            if error.status != 403:
+                raise
+            return "unreadable"
+
+    found = step(label, look)
+    if found and found != "unreadable":
+        print(f"{label}: member")
+        return
+    step(label, lambda: admin.call("POST", members, body))
+    print(f"{label}: added" if not found else f"{label}: added or kept (the admin cannot read its members)")
+
+
+def _token_user(url: str, token: str) -> str | None:
+    try:
+        return Server(url, token).call("GET", "/users/me")["id"]
+    except Refused:
+        return None
+
+
+def _command(admin: Server, team_id: str, url: str) -> str:
+    label = "slash command"
+    commands = step(label, lambda: admin.call("GET", f"/commands?team_id={team_id}&custom_only=true"))
+    command = next((c for c in commands if c["trigger"] == TRIGGER and not c.get("delete_at")), None)
+    if command is None:
+        command = step(
+            label,
+            lambda: admin.call(
+                "POST",
+                "/commands",
+                {
+                    "team_id": team_id,
+                    "trigger": TRIGGER,
+                    "method": "P",
+                    "url": url,
+                    "display_name": "Belle",
+                    "description": "Run a Belle command",
+                    "auto_complete": True,
+                    "auto_complete_desc": "Run a Belle command",
+                    "auto_complete_hint": "help",
+                },
+            ),
+        )
+        print(f"/{TRIGGER}: created")
+    elif command["url"] != url or command["method"] != "P":
+        command.update(url=url, method="P")
+        command = step(label, lambda: admin.call("PUT", f"/commands/{command['id']}", command))
+        print(f"/{TRIGGER}: request URL set to {url}")
+    else:
+        print(f"/{TRIGGER}: exists")
+    return command["token"]
+
+
+def _note_allow_list(admin: Server, listener: str) -> None:
+    """Name the setting the server needs to call a private address. Only a system admin can read it."""
+    try:
+        allowed = admin.call("GET", "/config")["ServiceSettings"].get("AllowedUntrustedInternalConnections") or ""
+    except (Refused, urllib.error.URLError, KeyError):
+        return
+    host = urllib.parse.urlsplit(listener).hostname
+    if host not in allowed.replace(",", " ").split():
+        print(
+            f"note: ServiceSettings.AllowedUntrustedInternalConnections does not name {host}. "
+            "The server calls a listener on a private address only where that setting names its host"
+        )
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Set up Belle's bot on a Mattermost server.")
+    parser.add_argument(
+        "--url", required=True, type=url_arg("--url"), help="the server, such as https://chat.example.com"
+    )
+    parser.add_argument("--team", required=True, type=name_arg("--team"), help="the team's name (its URL part)")
+    parser.add_argument(
+        "--channel",
+        action="append",
+        default=[],
+        type=name_arg("--channel"),
+        help="a channel's name (its URL part) for the bot to join; repeat for each",
+    )
+    parser.add_argument(
+        "--listener",
+        required=True,
+        type=url_arg("--listener"),
+        help="Belle's action listener as the server reaches it, such as http://belle:18400",
+    )
+    parser.add_argument("--bot-name", default="belle", type=name_arg("--bot-name"), help="default: belle")
+    args = parser.parse_args()
+    try:
+        setup(args)
+    except Step as error:
+        print(f"setup failed at {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

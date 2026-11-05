@@ -1,0 +1,53 @@
+# The Matrix helper: its locked crates, built and tested with the pinned toolchain of rust-toolchain.toml.
+# The toolchain image is Debian 13, the release of the Python base, so the binary finds the same glibc and libsqlite3.
+FROM docker.io/library/rust:1.99.1-trixie@sha256:e259494b14672950a909b4c54527e19d29cae6ebf980672114c8bb85e5594e4a AS matrix-helper
+ENV CARGO_TARGET_DIR=/cargo-target \
+    SOURCE_DATE_EPOCH=0 \
+    RUSTFLAGS="--remap-path-prefix=/usr/local/cargo/registry/src=/crates"
+WORKDIR /helper
+COPY src/belle_agent/platforms/matrix/helper /helper
+COPY containers/copy-cargo-licenses.py /copy-cargo-licenses.py
+RUN --mount=type=cache,id=belle-cargo-registry,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=belle-cargo-target,target=/cargo-target \
+    cargo test --release --locked \
+    && cargo build --release --locked \
+    && cp /cargo-target/release/belle-matrix-helper /belle-matrix-helper \
+    && python3 /copy-cargo-licenses.py
+
+FROM docker.io/library/python:3.11-slim
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/apt/lists,sharing=locked \
+    apt -o Dir::State::lists=/var/apt/lists update \
+    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends \
+        ca-certificates
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+ARG PIP_DISABLE_PIP_VERSION_CHECK=1
+ARG PIP_ROOT_USER_ACTION=ignore
+
+WORKDIR /src
+
+COPY pyproject.toml README.md LICENSE NOTICE /src/
+COPY LICENSE NOTICE /usr/share/licenses/belle-agent/
+COPY src/belle_agent /src/src/belle_agent
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install '.[mcp,slack,matrix,discord,acp]'
+
+# The state and data directories exist so that a new named volume mounted on them belongs to belle.
+RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin belle \
+    && install -d -o belle -g belle /home/belle/.local /home/belle/.local/state /home/belle/.local/share \
+        /home/belle/.local/state/belle-agent /home/belle/.local/share/belle-agent
+COPY --from=matrix-helper /belle-matrix-helper /usr/local/bin/belle-matrix-helper
+COPY --from=matrix-helper /cargo-licenses /usr/share/licenses/belle-matrix-helper/dependencies
+COPY --chown=belle:belle examples/config/belle-config.yaml /home/belle/.config/belle-agent/config.yaml
+# No default backend: the pairing file sets BELLE_BACKEND.
+ENV BELLE_TOOLS_BIND=0.0.0.0 \
+    BELLE_TOOLS_PORT=18300 \
+    BELLE_RELAY_BIND=0.0.0.0 \
+    BELLE_RELAY_PORT=18200
+USER belle
+WORKDIR /home/belle
+CMD ["python", "-m", "belle_agent.launcher"]

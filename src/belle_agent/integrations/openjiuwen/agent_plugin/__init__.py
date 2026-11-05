@@ -1,0 +1,1 @@
+"""OpenJiuwen agent plugin resources."""

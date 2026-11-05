@@ -1,0 +1,50 @@
+# Slack CLI in a minimal Alpine image. Build from the repository root:
+#   podman build --format oci -t localhost/belle:slack-helper-local -f containers/slack-helper/Containerfile \
+#     --ignorefile containers/slack-helper/.containerignore .
+# The CLI version and checksums are build arguments. The build fails when the
+# downloaded tarball does not match.
+
+FROM docker.io/library/alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc AS fetch
+ARG TARGETARCH
+ARG SLACK_CLI_VERSION=4.9.0
+ARG SLACK_CLI_SHA256_AMD64=6fb005b3d49f02eacd281adcfccb446648dc784171d0e2b8e80bb648673d696a
+ARG SLACK_CLI_SHA256_ARM64=e63e11a60b563d0eb1e1505be1a97c1e4bf0e684fdf549d69c0619b770553344
+COPY containers/slack-helper/belle-avatar.svg /tmp/belle-avatar.svg
+RUN apk add --no-cache curl rsvg-convert \
+ && case "${TARGETARCH:-amd64}" in \
+      amd64) sum="$SLACK_CLI_SHA256_AMD64" ;; \
+      arm64) sum="$SLACK_CLI_SHA256_ARM64" ;; \
+      *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL -o /tmp/slack.tar.gz \
+      "https://downloads.slack-edge.com/slack-cli/slack_cli_${SLACK_CLI_VERSION}_linux_${TARGETARCH:-amd64}.tar.gz" \
+ && echo "$sum  /tmp/slack.tar.gz" | sha256sum -c - \
+ && mkdir /out \
+ && tar -xzf /tmp/slack.tar.gz -C /out bin/slack LICENSE \
+ && rsvg-convert -w 1024 -h 1024 -o /out/icon.png /tmp/belle-avatar.svg
+
+FROM docker.io/library/alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc
+LABEL org.opencontainers.image.title="belle-slack-helper" \
+      org.opencontainers.image.description="Slack CLI on Alpine, for creating and installing the Slack app Belle" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.base.name="docker.io/library/alpine:3.20"
+RUN apk add --no-cache git ca-certificates yq \
+ && adduser -D -u 10001 -h /home/slack slack \
+ && install -d -o 10001 -g 10001 -m 0755 /project \
+ && install -d -o 10001 -g 10001 -m 0700 /auth \
+ && install -d -m 0755 /manifest
+COPY --from=fetch /out/bin/slack /usr/local/bin/slack
+COPY containers/slack-helper/belle-slack-project /usr/local/bin/belle-slack-project
+# Defaults. A file mounted at the same path replaces each.
+COPY src/belle_agent/platforms/slack/manifests/slack-app-manifest-3-gated.yaml /manifest/manifest.yaml
+COPY --from=fetch /out/icon.png /manifest/icon.png
+COPY --from=fetch /out/LICENSE /usr/share/licenses/slack-cli/LICENSE
+COPY LICENSE NOTICE /usr/share/licenses/belle-agent/
+USER 10001:10001
+ENV HOME=/home/slack SLACK_CONFIG_DIR=/auth SLACK_DISABLE_TELEMETRY=1 SLACK_SKIP_UPDATE=1
+WORKDIR /project
+VOLUME ["/auth"]
+# setup, init, tokens and name go to the helper, `slack <arguments>` and any
+# other first argument to the CLI. umask 077 makes the CLI's files private.
+ENTRYPOINT ["/bin/sh", "-c", "umask 077; case \"$1\" in setup|init|tokens|name) exec belle-slack-project \"$@\" ;; slack) shift ;; esac; exec slack \"$@\"", "slk"]
+CMD ["setup"]

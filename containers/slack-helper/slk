@@ -1,0 +1,14 @@
+#!/bin/sh
+# Run the Slack CLI image with the hardened options. Copy this file into the
+# operator's directory (the one that holds auth/, project/ and manifest.yaml),
+# mode 700. BELLE_APP_NAME, BELLE_COMMAND_NAME, BELLE_APP_ICON, SLK_TTY, SLK_OPTS
+# and SLK_IMAGE (default localhost/belle:slack-helper-local) are read from the environment.
+SLK=$(cd "$(dirname "$0")" && pwd)
+exec podman run --rm $SLK_TTY $SLK_OPTS -e BELLE_APP_NAME -e BELLE_COMMAND_NAME -e BELLE_APP_ICON \
+  --userns=keep-id:uid=10001,gid=10001 \
+  --read-only --tmpfs /tmp:rw,mode=1777 \
+  --cap-drop=ALL --security-opt=no-new-privileges \
+  --memory=256m --cpus=1 --pids-limit=128 \
+  -v "$SLK/auth:/auth:rw" -v "$SLK/project:/project:rw" \
+  -v "$SLK/manifest.yaml:/manifest/manifest.yaml:ro" \
+  "${SLK_IMAGE:-localhost/belle:slack-helper-local}" "$@"

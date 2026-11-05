@@ -1,0 +1,7 @@
+**
+!containers/docker-agent/entrypoint.sh
+!src/belle_agent/integrations/docker_agent/agent/belle.yaml
+!src/belle_agent/skills/
+!src/belle_agent/skills/**
+!LICENSE
+!NOTICE

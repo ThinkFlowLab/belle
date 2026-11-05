@@ -1,0 +1,508 @@
+# Optional local status socket with operator job pause/resume. Requires BELLE_AGENT_RUNTIME_DIR or XDG_RUNTIME_DIR.
+control:
+  enabled: false
+  peek: false                     # Live turn text peek on the control socket (content-bearing)
+  # peek_max_frames: 200          # Operator resource limit for retained peek frames
+  # peek_max_bytes: 65536         # Operator resource limit for retained peek bytes
+  # peek_max_subscribers: 4       # Concurrent peeks on this Belle instance
+  # peek_subscriber_idle_seconds: 300  # Close peeks with no open/poll for this long
+
+
+# The route: opencode or docker_agent, Belle's integration of that harness, or acp, the same harness over ACP
+# (experimental), with backends.acp.profile naming it. Only this key changes between the two routes. See docs/config.md.
+backend: ${BELLE_BACKEND}
+# auto uses Belle's scheduler on OpenCode and Docker Agent, and the host scheduler on JiuwenSwarm.
+scheduling:
+  engine: auto                    # auto, belle, host, or disabled
+  max_jobs: 50                    # Maximum jobs in this deployment
+  min_interval_seconds: 300       # Shortest gap between runs of one job
+  max_concurrent_runs: 4          # Maximum runs at the same time
+  max_pending_sessions: 64        # Requested runs that wait for a run slot
+  job_visibility: conversation    # conversation or all
+  operator_role: ""               # Role allowed to manage another creator's jobs
+  default_zone: ""                # IANA zone for wall times without a zone
+  delivery:                       # Allowed origin-to-target address rules
+    - to: {same: [platform, workspace]}
+  kept_runs_per_job: 20           # Ended runs kept for each job
+  session_retention_hours: 72     # Hours to keep a detached session after its last run ends
+  disable_after_failures: 3       # Consecutive failed scheduled runs before pause; 0 disables pause
+  question_timeout_seconds: 900   # Seconds to wait for a target question
+attached_sessions:
+  expire_after_idle_hours: disabled  # disabled, or hours after the last turn to delete an attached session
+# Only the selected backend reads its settings. JiuwenSwarm ignores this section.
+backends:
+  # Experimental: Belle's integration of OpenCode. See docs/backends/opencode.md.
+  opencode:
+    url: ${OPENCODE_URL}
+    username: opencode
+    namespace: ${OPENCODE_NAMESPACE}
+    ready_timeout_seconds: 120
+    # OpenCode's own file, shell, web and subagent tools run as its server user and can read the model key
+    # and other sessions. Remove names to allow them: see docs/backends/opencode.md#tool-access.
+    deny_tools: [
+      shell, execute, edit, read, grep, glob, webfetch, websearch, subagent, external_directory,
+      opencode_session_rename, opencode_session_move, opencode_worktree_create, opencode_worktree_list,
+      opencode_models, opencode_list_mcp_resources, opencode_read_mcp_resource,
+    ]
+    tools:
+      bind: ${BELLE_TOOLS_BIND}
+      port: ${BELLE_TOOLS_PORT}
+      url: ${BELLE_TOOLS_URL}
+    relay:
+      bind: ${BELLE_RELAY_BIND}
+      port: ${BELLE_RELAY_PORT}
+  # Experimental: Belle's integration of Docker Agent. See docs/backends/docker-agent.md.
+  docker_agent:
+    url: ${DOCKER_AGENT_URL}
+    namespace: ${DOCKER_AGENT_NAMESPACE}
+    tools:
+      bind: ${BELLE_TOOLS_BIND}
+      port: ${BELLE_TOOLS_PORT}
+      url: ${BELLE_TOOLS_URL}
+    relay:
+      bind: ${BELLE_RELAY_BIND}
+      port: ${BELLE_RELAY_PORT}
+    # Read by the Docker Agent image as --max-request-size too. Empty is 1048576, the server's default.
+    max_request_bytes: ${DOCKER_AGENT_MAX_REQUEST_BYTES}
+  # Experimental: an agent harness over ACP, behind a relay socket. See docs/backends/acp.md.
+  acp:
+    # opencode or docker_agent: a profile below.
+    profile: ${BELLE_ACP_PROFILE}
+    tools:
+      bind: ${BELLE_TOOLS_BIND}
+      port: ${BELLE_TOOLS_PORT}
+      url: ${BELLE_TOOLS_URL}
+    tools_token: ${BELLE_TOOLS_TOKEN}
+    profiles:
+      opencode:
+        socket: ${BELLE_ACP_SOCKET}
+        cwd: /home/belle/work
+        connection: shared
+        tools_mount: session
+        binding: {meta: ai.opencode/sessionID} # Metadata binding requires a shared connection.
+        tool_name_format: belle_{name}
+        start_timeout_seconds: 60
+        cancel_timeout_seconds: 10
+        permission_timeout_seconds: 900
+        remembered_requests: 1024
+      docker_agent:
+        socket: ${BELLE_ACP_SOCKET}
+        cwd: /home/belle/work
+        connection: per_conversation
+        tools_mount: agent
+        binding: {header: X-Belle-Turn} # Independent agent processes require header binding.
+        tool_name_format: belle_{name}
+
+# Each platform has its section here. A section is on when its credentials resolve. enabled: false turns
+# it off. enabled: true makes a missing credential an error. A section with only some of its credentials
+# stops the start.
+platforms:
+  slack:
+    enabled:
+    enforce_audience: true
+    bot_token: ${SLACK_BOT_TOKEN}
+    app_token: ${SLACK_APP_TOKEN}
+    # A nonempty list takes precedence over the single token pair.
+    workspaces: []
+    command_name: belle
+    app_messages: none
+    app_messages_from: []
+    acknowledge_mode: reaction
+    acknowledgement_text: "Received. Analyzing…"
+    thinking_status: "is thinking…"
+    queued_status: "has queued a message"
+    steered_status: "has steered a message into the running turn"
+    session_surface: auto
+    decision_questions_file: ""
+    decision_forward: true
+    acknowledgement_emoji: eyes
+    rejected_emoji: no_entry_sign
+    queued_emoji: hourglass_flowing_sand
+    completed_emoji: disabled
+    failed_emoji: x
+    stopped_emoji: black_square_for_stop
+    brain_react_pending: open_book
+    brain_react_success: brain
+    brain_react_declined: x
+    brain_react_failure: warning
+    enable_streaming: false
+    activity_card: true
+    activity_card_delay_seconds: 5
+    activity_card_min_edit_seconds: 10
+    blockkit_tables: auto
+    render_tables: data_table
+    bot_name: "Belle"
+    home_tab_welcome: false
+    search_enabled: true
+    history_max_messages: 2000
+    history_max_total_chars: 200000
+    history_max_message_chars: 4000
+    canvas_read_max_chars: 60000
+    lists_export_max_bytes: 4194304
+    lists_export_max_chars: 60000
+    file_download_max_bytes: 31457280
+    directory_scan_max_pages: 25
+    history_max_roots_scanned: 10000
+    history_max_api_calls: 200
+    history_max_user_lookups: 50
+    history_scan_timeout_seconds: 90
+    history_members_cache_seconds: 60
+
+  # Experimental: the Mattermost platform. See docs/platforms/mattermost.md.
+  # On when MATTERMOST_URL and MATTERMOST_BOT_TOKEN are set. The bot token comes from MATTERMOST_BOT_TOKEN only.
+  mattermost:
+    enabled:
+    url: ${MATTERMOST_URL}
+    # Where the server posts button clicks and the slash command. Belle listens on bind and port. The server
+    # calls url, whose host the server setting AllowedUntrustedInternalConnections must name on a private
+    # network. Empty url: no buttons and no command. The command's token comes from MATTERMOST_COMMAND_TOKEN.
+    actions:
+      bind: 0.0.0.0
+      port: 18400
+      url: ${MATTERMOST_ACTIONS_URL}
+    # Several servers in one process: one entry each, with name, url, bot_token_env, command_token_env,
+    # actions and enabled. A nonempty list takes the place of url and actions above.
+    servers: []
+    allow_from: []
+    allowed_channel_ids: []
+    decision_questions_file: ""
+    decision_forward: true
+    # The most characters of text that one result holds, as on Slack. download_file refuses a longer text
+    # file whole.
+    history_max_total_chars: 200000
+    directory_scan_max_pages: 25
+    audience_member_max_pages: 25
+    # Pages of 200 of each channel's latest posts whose reactions are read back after the server drops the
+    # connection. A reaction on an older post during the drop is lost.
+    gap_reaction_scan_max_pages: 1
+    file_download_max_bytes: 31457280
+    file_upload_max_bytes: 31457280
+    # The reactions that mark what became of a message. disabled: none.
+    acknowledgement_emoji: eyes
+    rejected_emoji: no_entry_sign
+    queued_emoji: hourglass_flowing_sand
+    completed_emoji: disabled
+    failed_emoji: x
+    stopped_emoji: black_square_for_stop
+    # The reactions that mark a document's ingest by the second brain.
+    brain_react_pending: open_book
+    brain_react_success: brain
+    brain_react_declined: x
+    brain_react_failure: warning
+    # What a running turn shows: its reply as it is written, edited in place, and a card of its tool calls
+    # with a stop button. The card is posted once the turn has run for the delay, and edited no more often
+    # than the interval.
+    enable_streaming: false
+    activity_card: true
+    activity_card_delay_seconds: 5
+    activity_card_min_edit_seconds: 10
+    # true: while a turn runs, the bot shows as typing where its answer goes.
+    typing_indicator: true
+
+  # Experimental: the Matrix platform. See docs/platforms/matrix.md.
+  # On when homeserver, user_id and MATRIX_STORE_PASSPHRASE resolve. The belle-matrix-helper of the
+  # launcher image holds the encryption. Each secret comes from its variable
+  # or from the file that <variable>_FILE names: MATRIX_STORE_PASSPHRASE (the store), MATRIX_PASSWORD (the
+  # first start of a device) and MATRIX_RECOVERY_KEY (a new device of an account that has its identity).
+  matrix:
+    enabled:
+    homeserver: ${MATRIX_HOMESERVER}
+    user_id: ${MATRIX_USER_ID}
+    device_name: belle
+    # Default: <state dir>/matrix/default. Keep it on a volume, and never copy it back from a backup.
+    store_dir:
+    # The first start of an account, and the operator's reset-identity, write the new recovery key
+    # here. Must not exist, and must be outside store_dir: not on the store's volume.
+    recovery_key_output: ${MATRIX_RECOVERY_KEY_OUTPUT}
+    # Several accounts in one process: one entry each, with name, homeserver, user_id, store_dir,
+    # recovery_key_output, store_passphrase_env, password_env, recovery_key_env and enabled. A nonempty
+    # list takes the place of homeserver, user_id, store_dir and recovery_key_output above.
+    accounts: []
+    helper_path: belle-matrix-helper
+    # Full user ids. Empty: everybody. The bot joins only the rooms these people invite it to.
+    allow_from: []
+    allowed_channel_ids: []
+    bot_user_ids: []
+    # A message older than this when it reaches Belle, such as after downtime, gets no turn. A message owed an
+    # answer gets late_emoji instead.
+    catch_up_seconds: 300
+    typing_indicator: true
+    # The most characters of text that one result holds. download_file refuses a longer text file whole.
+    history_max_total_chars: 200000
+    file_download_max_bytes: 31457280
+    file_upload_max_bytes: 31457280
+    membership_history_max_events: 20
+    # A shortcode of belle_agent/emoji.py, an emoji character, or disabled.
+    acknowledgement_emoji: eyes
+    rejected_emoji: no_entry_sign
+    late_emoji: alarm_clock
+    queued_emoji: hourglass_flowing_sand
+    completed_emoji: disabled
+    failed_emoji: x
+    stopped_emoji: black_square_for_stop
+    # The reactions that mark a document's ingest by the second brain.
+    brain_react_pending: open_book
+    brain_react_success: brain
+    brain_react_declined: x
+    brain_react_failure: warning
+    # The command word: !belle or /belle, first in a message or after a mention of the bot.
+    command_name: belle
+    # What a running turn shows: its reply as it is written, edited in place, and a card of its tool calls.
+    # A person's black_square_for_stop reaction on the card stops the turn. The card is posted once the turn
+    # has run for the delay, and edited no more often than the interval.
+    enable_streaming: false
+    activity_card: true
+    activity_card_delay_seconds: 5
+    activity_card_min_edit_seconds: 10
+    # The decision gate, as for Slack and Mattermost: see docs/config.md.
+    decision_questions_file: ""
+    decision_forward: true
+
+  # Experimental: the Discord platform. See docs/platforms/discord.md.
+  # On when DISCORD_BOT_TOKEN is set; the token comes from there only.
+  discord:
+    # Optional named bot accounts; omit bots to use DISCORD_BOT_TOKEN for one bot.
+    # bots:
+    #   - name: belle
+    #     token_env: DISCORD_BELLE_TOKEN
+    #   - name: helper
+    #     token_env: DISCORD_HELPER_TOKEN
+    enabled:
+    # The two privileged intents; each needs its toggle on the developer portal's Bot tab. Without
+    # message_content, a guild message carries text only where it mentions the bot.
+    message_content: true
+    guild_members: false
+    # Optional per-guild fallback channel for member events when the system channel cannot be used.
+    # member_event_channels:
+    #   "1000000000000000200": "1000000000000000116"
+    # A channel message is answered in a thread started on it. false: in the channel.
+    reply_in_thread: true
+    typing_indicator: true
+    # A reply shown as it is written, in a message Belle edits; and the card of the tools a running turn
+    # calls, with a Stop button, posted after the delay and edited at most every min_edit seconds.
+    enable_streaming: false
+    activity_card: true
+    activity_card_delay_seconds: 5
+    activity_card_min_edit_seconds: 10
+    # Maximum Gateway events waiting per bot, excluding interactions. Overflow stops the connector.
+    pending_events_max: 1024
+    file_download_max_bytes: 31457280
+    # Pending question controls stay valid for one day. At capacity, Belle closes the oldest question.
+    pending_questions_max: 256
+    question_expiry_seconds: 86400
+    # Privileged message forms need operator consent and destination permissions.
+    allow_role_mentions: false
+    allow_everyone_mentions: false
+    allow_tts: false
+    allow_from: []
+    allowed_channel_ids: []
+    decision_questions_file: ""
+    decision_forward: true
+    # Each mark accepts a nonempty bare Unicode value (no spaces, at most 64 characters), a custom
+    # emoji as name:id, or disabled. Discord checks bare values when reacting.
+    acknowledgement_emoji: "👀"
+    rejected_emoji: "🚫"
+    queued_emoji: "⏳"
+    completed_emoji: disabled
+    failed_emoji: "❌"
+    stopped_emoji: "⏹️"
+    brain_react_pending: "📖"
+    brain_react_success: "🧠"
+    brain_react_declined: "❌"
+    brain_react_failure: "⚠️"
+
+scopes:
+- match:
+    channel: slack
+  agent:
+    skills:
+      required: [messaging-context, session-work]
+  delivery:
+    mid_turn: queue
+    session: channel
+- match:
+    channel: slack
+    chat_type: im
+  agent:
+    skills:
+      required: [messaging-context, belle-command-help, slack-app-home, session-work]
+  delivery:
+    prompt: "This is a direct message to you. Reply to the sender, including when they only greet you."
+- match:
+    channel: slack
+    chat_type: [channel, group]
+  agent:
+    skills:
+      required: [messaging-context, group-chat-participation, session-work]
+  delivery:
+    mode: [+all]
+    reply: optional
+- match:
+    channel: mattermost
+  agent:
+    skills:
+      # These skills describe Slack only. Every other skill stays available.
+      unavailable: [slack-app-home, slack-block-kit-rendering, slack-daily-update]
+      required: [messaging-context, session-work]
+  delivery:
+    mid_turn: queue
+    session: channel
+- match:
+    channel: mattermost
+    chat_type: D
+  agent:
+    skills:
+      required: [messaging-context, belle-command-help, session-work]
+  delivery:
+    prompt: "This is a direct message to you. Reply to the sender, including when they only greet you."
+- match:
+    channel: mattermost
+    chat_type: [O, P, G]
+  agent:
+    skills:
+      required: [messaging-context, group-chat-participation, session-work]
+  delivery:
+    mode: [+all]
+    reply: optional
+- match:
+    channel: matrix
+  agent:
+    skills:
+      # These skills describe Slack only. Every other skill stays available.
+      unavailable: [slack-app-home, slack-block-kit-rendering, slack-daily-update]
+      required: [messaging-context, session-work]
+  delivery:
+    mid_turn: queue
+    session: channel
+- match:
+    channel: matrix
+    chat_type: direct
+  agent:
+    skills:
+      required: [messaging-context, belle-command-help, session-work]
+  delivery:
+    prompt: "This is a direct message to you. Reply to the sender, including when they only greet you."
+- match:
+    channel: matrix
+    chat_type: [private, public]
+  agent:
+    skills:
+      required: [messaging-context, group-chat-participation, session-work]
+  delivery:
+    mode: [+all]
+    reply: optional
+- match:
+    channel: discord
+  agent:
+    skills:
+      unavailable: [slack-app-home, slack-block-kit-rendering, slack-daily-update]
+      required: [messaging-context, session-work]
+  delivery:
+    mid_turn: queue
+    session: channel
+- match:
+    channel: discord
+    chat_type: dm
+  agent:
+    skills:
+      required: [messaging-context, belle-command-help, session-work]
+  delivery:
+    prompt: "This is a direct message to you. Reply to the sender, including when they only greet you."
+- match:
+    channel: discord
+    chat_type: [text, announcement, forum, voice, stage, thread, private_thread]
+  agent:
+    skills:
+      required: [messaging-context, group-chat-participation, session-work]
+  delivery:
+    mode: [+all]
+    reply: optional
+
+people: {}
+roles: {}
+
+# Belle owns task models; chat models remain with the backend.
+models:
+  decision:
+    default: jev
+    entries:
+      - id: jev
+        api: openrouter
+        api_base: ${DECISION_API_BASE}
+        api_key: ${DECISION_API_KEY}
+        model_name: ${DECISION_MODEL_NAME}
+  summarizer:
+    default: content
+    entries:
+      - id: documents
+        api: chat_completions
+        api_base: ${API_BASE}
+        api_key: ${API_KEY}
+        model_name: ${MODEL_NAME}
+      - id: content
+        api: openrouter
+        api_base: ${CONTENT_API_BASE}
+        api_key: ${CONTENT_API_KEY}
+        model_name: scaledown/summarize
+  extractor:
+    entries:
+      - id: fields
+        api: openrouter
+        api_base: ${CONTENT_API_BASE}
+        api_key: ${CONTENT_API_KEY}
+        model_name: scaledown/extract
+  classifier:
+    entries:
+      - id: labels
+        api: scaledown
+        api_base: ${SCALEDOWN_API_BASE}
+        api_key: ${SCALEDOWN_API_KEY}
+
+# Files and links shared in selected channels form a shared recall corpus.
+# On Slack, ingestion needs files:read and reactions:write.
+second_brain:
+  enabled: true
+  # Empty uses Belle's data directory; relative paths use the agent workspace.
+  corpus_dir: ""
+  ingest:
+    # Use "public" (open channels on Mattermost), "*", or channel IDs. DMs are excluded from ingestion.
+    # Recall can surface indexed content in any conversation.
+    channels: [public]
+    max_file_bytes: 52428800
+    link:
+      enabled: true
+      # Deny HTML from these hosts and subdomains. Citation PDFs remain eligible.
+      deny_hosts:
+        - github.com
+        - gitlab.com
+        - jira.com
+        - atlassian.net
+        - docs.google.com
+        - slack.com
+      min_chars: 600
+      max_chars: 400000
+      fetch_timeout_seconds: 20
+    summarizer:
+      model: documents
+      # The entry for the outline notes. Empty uses the entry of "model".
+      # A summarize-only model such as direct ScaleDown leaves the notes empty.
+      # outline_model: documents
+      max_input_chars: 60000
+      prose_lines: 30
+      timeout_seconds: 120
+  retrieval:
+    top_k: 5
+    min_score: 0.35
+    max_total_bytes: 10240
+    # Off by default. Without an embedding endpoint, or with this off,
+    # ranking is lexical.
+    use_embeddings: false
+    # An OpenAI-compatible embeddings endpoint. On JiuwenSwarm, without
+    # api_base, the embed section of JiuwenSwarm's configuration is used.
+    embeddings:
+      api_base: ""
+      api_key: ""
+      model: ""
+    # Empty weights use 0.7 and 0.3.
+    vector_weight:
+    text_weight:

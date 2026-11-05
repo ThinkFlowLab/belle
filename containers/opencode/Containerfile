@@ -1,0 +1,70 @@
+ARG DEBIAN_TAG=bookworm-slim
+
+# linux-x64 requires AVX2. Update the checksum with the version or target.
+ARG OPENCODE_VERSION=2.2.5
+ARG OPENCODE_TARGET=linux-x64
+ARG OPENCODE_SHA512=0641c07d3a8db20feaa61c8736b9c7f831a43b166c1a36a63693390efc2812fcfb6403cdc3c9846cc5c64c20ce007fbffb8d04a9e89ee8a359059650c0f0a368
+ARG OPENCODE_LICENSE_SHA256=625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b
+
+FROM docker.io/library/debian:${DEBIAN_TAG} AS fetch
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG OPENCODE_VERSION
+ARG OPENCODE_TARGET
+ARG OPENCODE_SHA512
+ARG OPENCODE_LICENSE_SHA256
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/apt/lists,sharing=locked \
+    apt -o Dir::State::lists=/var/apt/lists update \
+    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends \
+        ca-certificates \
+        curl
+
+RUN set -eu; \
+    url="https://registry.npmjs.org/@opencode/cli-${OPENCODE_TARGET}/-/cli-${OPENCODE_TARGET}-${OPENCODE_VERSION}.tgz"; \
+    curl -fsSL -o /tmp/cli.tgz "$url"; \
+    echo "${OPENCODE_SHA512}  /tmp/cli.tgz" | sha512sum -c -; \
+    tar -xzf /tmp/cli.tgz -C /tmp package/bin/opencode; \
+    install -m 0755 /tmp/package/bin/opencode /opt/opencode; \
+    curl -fsSL -o /opt/LICENSE "https://raw.githubusercontent.com/anomalyco/opencode/v${OPENCODE_VERSION}/LICENSE"; \
+    echo "${OPENCODE_LICENSE_SHA256}  /opt/LICENSE" | sha256sum -c -
+
+FROM docker.io/library/debian:${DEBIAN_TAG} AS plain
+ARG DEBIAN_FRONTEND=noninteractive
+
+# OpenCode reads Git metadata from its working directory.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/apt/lists,sharing=locked \
+    apt -o Dir::State::lists=/var/apt/lists update \
+    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends \
+        ca-certificates \
+        git
+
+RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin opencode \
+    && mkdir -p /workspace/.opencode/plugins \
+    && chown -R opencode:opencode /workspace
+
+COPY --from=fetch /opt/opencode /usr/local/bin/opencode
+COPY --from=fetch /opt/LICENSE /usr/share/licenses/opencode/LICENSE
+COPY LICENSE NOTICE /usr/share/licenses/belle-agent/
+COPY containers/opencode/opencode.jsonc /etc/opencode/opencode.jsonc
+
+COPY --chown=opencode:opencode src/belle_agent/skills /workspace/.opencode/skills
+
+# Baked plugins and skills need no watcher, which can exhaust host inotify slots.
+ENV HOME=/home/opencode \
+    OPENCODE_CONFIG=/etc/opencode/opencode.jsonc \
+    OPENCODE_DISABLE_AUTOUPDATE=1 \
+    OPENCODE_DISABLE_FILEWATCHER=1
+
+USER opencode
+WORKDIR /workspace
+EXPOSE 4096
+
+CMD ["opencode", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
+
+FROM plain AS relay
+
+ARG RELAY=src/belle_agent/integrations/opencode/plugin/relay.ts
+COPY --chown=opencode:opencode ${RELAY} /workspace/.opencode/plugins/relay.ts

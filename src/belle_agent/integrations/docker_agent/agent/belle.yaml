@@ -1,0 +1,64 @@
+# Belle's agent for `docker-agent serve api`. Belle's policy lives in Belle:
+# every hook below runs the same relay command, which posts the hook's JSON to
+# Belle and prints Belle's answer. A relay that fails blocks the hook: it exits
+# 2, and Docker Agent gives what it writes, curl's reason, as the hook's.
+#
+# Environment: API_BASE, API_KEY and MODEL_NAME name the model.
+# BELLE_TOOLS_URL is Belle's tool server. BELLE_RELAY_URL and BELLE_RELAY_TOKEN
+# are Belle's hook endpoint and its token.
+
+models:
+  default:
+    provider: openai
+    model: ${env.MODEL_NAME}
+    base_url: ${env.API_BASE}
+    token_key: API_KEY
+    provider_opts:
+      api_type: openai_chatcompletions
+    # Belle sends this model text only. Where it reads images or PDFs, add
+    # capabilities: {image: true, pdf: true}
+
+agents:
+  root:
+    model: default
+    description: Belle
+    instruction: You are Belle, an assistant in a chat workspace.
+    skills: true
+    # Docker Agent's secret redaction would rewrite the person's message, the
+    # arguments of Belle's tools and their results. Belle's scopes govern them.
+    redact_secrets: false
+    toolsets:
+      # Belle's tools. Each turn request carries the tool server's token and the
+      # turn's binding as headers, and Docker Agent forwards both on every call.
+      - type: mcp
+        name: belle
+        remote:
+          url: ${env.BELLE_TOOLS_URL}
+          transport_type: streamable
+          headers:
+            Authorization: "Bearer ${headers.X-Belle-Tools-Token}"
+            X-Belle-Turn: "${headers.X-Belle-Turn}"
+        # Belle runs on a private address.
+        allow_private_ips: true
+    hooks:
+      user_prompt_submit:
+        - &relay
+          type: command
+          # Under sh, whatever shell Docker Agent's environment names: Docker
+          # Agent runs a hook with $SHELL -c.
+          command: >-
+            sh -c 'exec 3>&1; reason=$(curl -fsS --max-time 55 --data-binary @-
+            -H "Content-Type: application/json"
+            -H "Authorization: Bearer ${BELLE_RELAY_TOKEN}"
+            "${BELLE_RELAY_URL}/hook/docker_agent" 2>&1 >&3)
+            || { printf "The relay to Belle failed: %s\n" "$reason" >&2; exit 2; }'
+          timeout: 60
+          on_error: block
+      user_steering_messages_submit:
+        - *relay
+      skill_content_guard:
+        - *relay
+      tool_guard:
+        - matcher: "*"
+          hooks:
+            - *relay

@@ -1,0 +1,210 @@
+[
+  {
+    "name": "session_start",
+    "description": "Start work in a detached session when the work can continue after this turn ends. Returns a session ID. Deliver substantive answers through the platform posting tool under current permissions. Optional ambient work can stay silent. Belle stores the final response privately. Belle sends a short completion notice unless notify is false.",
+    "input_params": {
+      "type": "object",
+      "required": [
+        "prompt"
+      ],
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The task for the new turn."
+        },
+        "turn": {
+          "type": "object",
+          "description": "Optional model, skills, expert, and subagents for this run. Each choice must be allowed here.",
+          "properties": {
+            "model": {
+              "type": "string"
+            },
+            "skills": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "expert": {
+              "type": "string"
+            },
+            "subagents": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "notify": {
+          "type": "boolean",
+          "default": true,
+          "description": "Send a short completion notice without result text to the originating thread. This does not control substantive replies through the posting tool."
+        },
+        "questions": {
+          "enum": [
+            "refuse",
+            "ask_target"
+          ],
+          "default": "refuse",
+          "description": "refuse: the new turn refuses each question. ask_target: the new turn asks in the originating conversation."
+        }
+      }
+    }
+  },
+  {
+    "name": "session_continue",
+    "description": "Add a run to a retained detached session: one that session_start started, or one of a scheduled job. Belle shows this tool only when the backend can continue a conversation. The new run continues that session's conversation. Use the platform posting tool for substantive replies under current permissions. Belle stores the final response under a new run ID and sends a short completion notice to the original thread.",
+    "input_params": {
+      "type": "object",
+      "required": ["session_id", "prompt"],
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^ses-[a-z0-9]{10}$",
+          "description": "The session ID from session_start, session_list or schedule_runs."
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The new task."
+        },
+        "turn": {
+          "type": "object",
+          "description": "Optional model, skills, expert, and subagents for this run. Current scope applies.",
+          "properties": {
+            "model": {"type": "string"},
+            "skills": {"type": "array", "items": {"type": "string", "minLength": 1}},
+            "expert": {"type": "string"},
+            "subagents": {"type": "array", "items": {"type": "string", "minLength": 1}}
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "session_list",
+    "description": "List the detached sessions visible in this conversation: those that session_start started and those of scheduled jobs. This tool does not list chat turns or the session of this conversation. To stop a running chat turn, use Belle's stop command. Use this tool to find a session ID. The list holds metadata. It holds no prompt and no result text.",
+    "input_params": {
+      "type": "object",
+      "properties": {
+        "states": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed",
+              "interrupted",
+              "cancelled"
+            ]
+          }
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "standalone",
+              "scheduled"
+            ]
+          }
+        },
+        "started_by": {
+          "enum": [
+            "request",
+            "clock"
+          ]
+        },
+        "cursor": {
+          "type": "string",
+          "description": "The next_cursor from an earlier session_list result."
+        },
+        "page_size": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 20,
+          "description": "Sessions on one page. When a page is larger than the tool result limit, the tool answers result_too_large. Then lower page_size."
+        }
+      }
+    }
+  },
+  {
+    "name": "session_get",
+    "description": "Show the state, the expiry and a page of the runs of a visible detached session, newest run first. expires_iso_utc is null while something holds the session: a pending or running run, a notice or a final that Belle still owes, or its shared job. deletion tells whether the deletion of its conversation waits for a retry. next_cursor is null on the last page of runs. The answer holds no prompt and no result text.",
+    "input_params": {
+      "type": "object",
+      "required": [
+        "session_id"
+      ],
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^ses-[a-z0-9]{10}$",
+          "description": "The session ID returned by session_start or session_list."
+        },
+        "cursor": {
+          "type": "string",
+          "description": "The next_cursor from an earlier session_get result for this session."
+        },
+        "page_size": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 20,
+          "description": "Runs on one page. When a page is larger than the tool result limit, the tool answers result_too_large. Then lower page_size."
+        }
+      }
+    }
+  },
+  {
+    "name": "session_result",
+    "description": "Read a page of a stored result in a direct message with the original requester. A pending or running run has no result yet. Omit run_id to read the latest run.",
+    "input_params": {
+      "type": "object",
+      "required": [
+        "session_id"
+      ],
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^ses-[a-z0-9]{10}$",
+          "description": "The session ID returned by session_start or session_list."
+        },
+        "run_id": {
+          "type": "string",
+          "description": "A run ID from session_get. Omit it for the latest run."
+        },
+        "cursor": {
+          "type": "string",
+          "description": "The next_cursor from an earlier session_result page."
+        },
+        "result_max_chars": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 2000,
+          "description": "Characters on one page. When a page is larger than the tool result limit, the tool answers result_too_large. Then lower result_max_chars."
+        }
+      }
+    }
+  },
+  {
+    "name": "session_cancel",
+    "description": "Stop every pending and running run of a detached session. The person who requested the session can cancel it, and so can Belle's operators. The requester of a scheduled job's session is the creator of the job. Belle cancels a pending run at once. A running run becomes cancelled only when the backend says that it stopped. The answer lists each run with its state, or with the state expired when its session expired meanwhile. The session and its job stay.",
+    "input_params": {
+      "type": "object",
+      "required": [
+        "session_id"
+      ],
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^ses-[a-z0-9]{10}$",
+          "description": "The session ID returned by session_start or session_list."
+        }
+      }
+    }
+  }
+]

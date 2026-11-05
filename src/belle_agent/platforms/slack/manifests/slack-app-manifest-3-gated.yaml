@@ -1,0 +1,263 @@
+# Slack app manifest for Belle -- tier 3, gated.
+#
+# Tools, plus Slack's agent surface: the features.agent_view block and the
+# assistant:write scope, which together let the app call
+# agents.sessions.setStatus for the thread status line. This is the one rung
+# Slack may refuse to save. The workspace has to have the agent feature, which
+# no scope in this file asks for and none grants. Read the agent_view block
+# before pasting: with it on, Slack draws this app's conversations as a
+# timeline above the composer in the Messages tab, and no key in this
+# repository's configuration takes that back. The tools manifest draws the same
+# status line through the older thread-status family, but without the agent
+# surface Slack's own stop button on that line does not work: Slack offers it
+# only to an app declared as an agent. The Stop button on the activity card
+# works on every tier.
+#
+# GENERATED FILE. Edit belle_agent.platforms.slack.scope_policy and run
+# scripts/generate_slack_manifest.py. A test regenerates this file and fails on
+# any difference, and a second test fails when the code calls a Slack method
+# the policy module does not classify.
+#
+# TO INSTALL: https://api.slack.com/apps -> Create New App -> From a manifest,
+# pick the workspace, paste this file. Two things no manifest field carries
+# stay manual afterwards: an App-Level Token carrying connections:write, minted
+# under Basic Information, and the install itself, which returns the bot token.
+_metadata:
+  major_version: 1
+  minor_version: 1
+
+display_information:
+  name: Belle
+  description: Belle agent runtime, connected over Socket Mode.
+  background_color: "#1f2937"
+  long_description: |-
+    Belle connects an agent runtime to this workspace over Socket Mode, so no public callback URL is needed. It answers mentions and direct messages, streams long replies, and posts questions and approvals as buttons.
+
+    It is installed per workspace from a manifest and configured with a bot token and an app-level token pasted into the operator's own configuration file. It is not distributed, and it is not listed in the Slack Marketplace.
+
+features:
+  bot_user:
+    display_name: Belle
+    always_online: true
+  app_home:
+    home_tab_enabled: true
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  agent_view:
+    # The agent surface. With this block present Slack groups this app's
+    # conversations into threads and draws them in a timeline above the
+    # composer in the Messages tab, so the app looks different to everybody in
+    # the workspace. Deleting the block before pasting keeps the ordinary
+    # layout, and costs the agents.sessions.setStatus family: Slack refuses
+    # that family to an app without the feature, and the connector falls back
+    # to assistant.threads.setStatus and says so once in the log. It also costs
+    # Slack's own stop button on the status line, which Slack offers only to an
+    # app with the feature.
+    #
+    # assistant:write is the grant that goes with it and is listed below.
+    # Delete one and the other buys nothing.
+    agent_description: Belle answers questions and runs tasks in this workspace. Mention it in a channel or send it a direct message and it replies in a thread. It reads only what it has been given access to, and it asks before it does anything that needs approval.
+  slash_commands:
+    - command: /belle
+      # a slash command typed in Slack; needs commands. No url: Socket Mode
+      # delivers it over the WebSocket.
+      description: Run a Belle command
+      usage_hint: help | status | skills list | skills use <skill> <task> | subagents list | subagents use <name> <task> | queue list | queue drop [message link] | experts list | models list | models current | models use <name> | models reset | ask <question> | stop [message link] | schedule list | schedule show <job id> | schedule pause <job id> | schedule resume <job id> | schedule delete <job id> | schedule run <job id> | bg <task> | sessions list [cursor] | sessions show <session id> [cursor] | sessions result <session id> [run id] [cursor] | sessions continue <session id> <task> | sessions cancel <session id>
+      should_escape: false
+
+oauth_config:
+  scopes:
+    bot:
+      # tier 0, core
+      - app_mentions:read
+        # needed by app_mention (being addressed in a channel)
+      - channels:history
+        # needed by conversations.history (reading a conversation);
+        # conversations.replies (reading a thread); message.channels (a message
+        # in a public channel)
+      - chat:write
+        # needed by chat.postMessage (posting a reply); chat.update (editing a
+        # reply); chat.delete (withdrawing a message); chat.postEphemeral (a
+        # notice for one reader); chat.startStream (opening a streamed reply);
+        # chat.appendStream (extending a streamed reply); chat.stopStream
+        # (closing a streamed reply); assistant.threads.setStatus (the thread
+        # status line); chat.scheduleMessage (scheduling a message);
+        # chat.deleteScheduledMessage (cancelling a scheduled message);
+        # agents.sessions.setStatus (the thread status line, newer API)
+      - groups:history
+        # needed by conversations.history (reading a conversation);
+        # conversations.replies (reading a thread); message.groups (a message
+        # in a private channel)
+        # optional: delete this and message.groups to keep the bot out of
+        #   private channels
+      - im:history
+        # needed by conversations.history (reading a conversation);
+        # conversations.replies (reading a thread); message.im (a direct
+        # message)
+      - mpim:history
+        # needed by conversations.history (reading a conversation);
+        # conversations.replies (reading a thread); message.mpim (a message in
+        # a group direct message)
+        # optional: delete this and message.mpim to keep the bot out of group
+        #   DMs
+      # tier 1, connector
+      - commands
+        # needed by /belle (a slash command typed in Slack)
+      - files:read
+        # needed by files.info (resolving an inbound attachment)
+      - files:write
+        # needed by files.upload_v2 (sending a file); files.delete (deleting a
+        # List, which is a file)
+      - reactions:write
+        # needed by reactions.add (the acknowledgement mark); reactions.remove
+        # (clearing the acknowledgement mark)
+      # tier 2, tools
+      - bookmarks:read
+        # needed by bookmarks.list (reading the bookmark bar)
+      - bookmarks:write
+        # needed by bookmarks.add (adding a bookmark); bookmarks.edit (editing
+        # a bookmark); bookmarks.remove (removing a bookmark)
+      - canvases:read
+        # needed by canvases.getContent (reading what a canvas says);
+        # canvases.sections.lookup (listing a canvas's sections)
+      - canvases:write
+        # needed by canvases.create (creating a canvas);
+        # conversations.canvases.create (creating a conversation's own canvas);
+        # canvases.edit (changing what a canvas says); canvases.access.set
+        # (setting who may read or write a canvas); canvases.access.delete
+        # (taking canvas access away); canvases.delete (deleting a canvas)
+      - channels:read
+        # needed by conversations.info (telling one conversation kind from
+        # another); conversations.members (listing who is in a conversation);
+        # conversations.list (finding a conversation by name);
+        # member_joined_channel (somebody joined); member_left_channel
+        # (somebody left)
+      - chat:write.customize
+        # needed by chat.postMessage as_requester (posting under the asker's
+        # name and face)
+        # optional: delete this to hold every message to this app's own name
+        #   and picture; post_message as_requester is then refused, naming the
+        #   scope, and everything else posts as before
+      - emoji:read
+        # needed by emoji.list (naming this workspace's custom emoji)
+      - groups:read
+        # needed by conversations.info (telling one conversation kind from
+        # another); conversations.members (listing who is in a conversation);
+        # conversations.list (finding a conversation by name);
+        # member_joined_channel (somebody joined); member_left_channel
+        # (somebody left)
+      - im:read
+        # needed by conversations.info (telling one conversation kind from
+        # another); conversations.members (listing who is in a conversation)
+      - im:write
+        # needed by conversations.open (opening a direct message)
+      - lists:read
+        # needed by slackLists.items.list (reading a List's rows);
+        # slackLists.items.info (reading one row, and the List's schema);
+        # slackLists.download.start (starting an export of a List);
+        # slackLists.download.get (collecting an export of a List)
+      - lists:write
+        # needed by slackLists.create (creating a List); slackLists.update
+        # (renaming a List); slackLists.items.create (adding a row to a List);
+        # slackLists.items.update (writing cells in a List);
+        # slackLists.items.delete (deleting one row of a List);
+        # slackLists.items.deleteMultiple (deleting several rows of a List);
+        # slackLists.access.set (setting who may read or write a List);
+        # slackLists.access.delete (taking List access away)
+      - mpim:read
+        # needed by conversations.info (telling one conversation kind from
+        # another); conversations.members (listing who is in a conversation)
+      - mpim:write
+        # needed by conversations.open (opening a direct message)
+      - pins:read
+        # needed by pins.list (reading what is pinned); pin_added (somebody
+        # pinned); pin_removed (somebody unpinned)
+      - pins:write
+        # needed by pins.add (pinning a message); pins.remove (unpinning a
+        # message)
+      - reactions:read
+        # needed by reaction_added (somebody reacted); reaction_removed
+        # (somebody took a reaction off)
+      - search:read.files
+        # needed by assistant.search.context (searching the workspace)
+        # optional: if Slack refuses this manifest over the six search scopes,
+        #   delete all six and set Belle platforms.slack.search_enabled to
+        #   false
+      - search:read.im
+        # needed by assistant.search.context (searching the workspace)
+      - search:read.mpim
+        # needed by assistant.search.context (searching the workspace)
+      - search:read.private
+        # needed by assistant.search.context (searching the workspace)
+      - search:read.public
+        # needed by assistant.search.context (searching the workspace)
+      - search:read.users
+        # needed by assistant.search.context (searching the workspace)
+      - usergroups:read
+        # needed by usergroups.list (finding a user group by name)
+      - users:read
+        # needed by users.info (turning user ids into names in a history
+        # answer; telling an app's event from a person's); users.list (finding
+        # a person by name)
+      # tier 3, gated
+      - assistant:write
+        # needed by agents.sessions.setStatus (the thread status line, newer
+        # API)
+
+settings:
+  event_subscriptions:
+    # No request_url: Socket Mode delivers these over the WebSocket the
+    # connector opens with the app-level token.
+    bot_events:
+      - app_mention
+        # being addressed in a channel; needs app_mentions:read
+      - message.channels
+        # a message in a public channel; needs channels:history
+      - message.groups
+        # a message in a private channel; needs groups:history
+      - message.im
+        # a direct message; needs im:history
+      - message.mpim
+        # a message in a group direct message; needs mpim:history
+      - agent_session_stopped
+        # somebody pressed Slack's own stop button, which Slack offers only to
+        # an app with the agent surface and delivers on the chat:write this app
+        # already holds for posting a reply; needs no scope this manifest does
+        # not already grant
+      - app_home_opened
+        # somebody opened this app's App Home, which Slack delivers to any app
+        # that has a bot user; needs no scope this manifest does not already
+        # grant
+      - member_joined_channel
+        # somebody joined; needs channels:read, groups:read
+      - member_left_channel
+        # somebody left; needs channels:read, groups:read
+      - pin_added
+        # somebody pinned; needs pins:read
+      - pin_removed
+        # somebody unpinned; needs pins:read
+      - reaction_added
+        # somebody reacted; needs reactions:read
+      - reaction_removed
+        # somebody took a reaction off; needs reactions:read
+
+  interactivity:
+    # The question, approval and stop buttons send block_actions payloads. With
+    # Socket Mode on those arrive on the same WebSocket as the events above, so
+    # no request_url is needed. Turned off, the buttons render and every click
+    # is discarded.
+    is_enabled: true
+
+  socket_mode_enabled: true
+
+  # Not distributed. This app is created per workspace from this manifest and
+  # installed by its own operator; it is not submitted to the Slack Marketplace
+  # and has no OAuth redirect flow.
+  org_deploy_enabled: false
+  token_rotation_enabled: false
+
+  # Slack stores these two settings on every app. Stating Slack's values here
+  # keeps an install from this manifest from stopping on a difference between
+  # the manifest and the app settings.
+  app_level_token_rotation_enabled: false
+  is_mcp_enabled: false

@@ -1,0 +1,394 @@
+[
+  {
+    "name": "schedule_create",
+    "description": "Make a job that runs a prompt later or repeatedly, as a new turn of this assistant. Nobody waits for a run. With questions: refuse, a tool that asks a person is refused there. With ask_target, the question goes to the delivery target. The reply goes to this thread by default. The result gives the job and its next runs in UTC and in the job's zone: tell the requester those times.",
+    "input_params": {
+      "type": "object",
+      "required": [
+        "name",
+        "prompt",
+        "when"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\r\\n]+$",
+          "description": "Label for lists and for the run's prompt. One line."
+        },
+        "prompt": {
+          "type": "string",
+          "description": "What the run does. Write it for a turn with nobody present. Say whom to mention."
+        },
+        "when": {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "description": "One of: {kind: once, at, zone}, {kind: once, after_seconds}, {kind: every, seconds, start, zone}, {kind: cron, expr, second, zone}. every and cron also take until and max_runs. at, start and until are YYYY-MM-DDTHH:MM[:SS]: a wall time in zone, or an instant that ends in Z or an offset. zone is an IANA name, such as Europe/Paris. It is required for cron and for each wall time. Never guess a zone: ask. dst selects the instant of a wall time in a DST gap or overlap. Runs of one job are at least 300 s apart.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "once",
+                "every",
+                "cron"
+              ]
+            },
+            "at": {
+              "type": "string"
+            },
+            "after_seconds": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "seconds": {
+              "type": "integer",
+              "minimum": 300
+            },
+            "start": {
+              "type": "string",
+              "description": "First run. Omit it for now plus seconds, rounded up to a whole second."
+            },
+            "expr": {
+              "type": "string",
+              "description": "5 fields: minute hour day-of-month month day-of-week."
+            },
+            "second": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 59
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 59
+                  },
+                  "minItems": 1
+                }
+              ],
+              "default": 0
+            },
+            "zone": {
+              "type": "string"
+            },
+            "dst": {
+              "enum": [
+                "earlier",
+                "later"
+              ]
+            },
+            "until": {
+              "type": "string",
+              "description": "No run after this time."
+            },
+            "max_runs": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "deliver_to": {
+          "description": "Where the reply goes. thread (default): this thread, or a new thread when the job is made at the top level. conversation: the top level of this conversation. creator_dm: a direct message to the person who asked. An object {platform, workspace, conversation, thread} names a place. Each field you omit is the one of this conversation. thread is a message id, empty for the top level, or new.",
+          "oneOf": [
+            {
+              "enum": [
+                "thread",
+                "conversation",
+                "creator_dm"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "platform": {
+                  "type": "string"
+                },
+                "workspace": {
+                  "type": "string"
+                },
+                "conversation": {
+                  "type": "string"
+                },
+                "thread": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "session": {
+          "enum": [
+            "fresh",
+            "shared"
+          ],
+          "default": "fresh",
+          "description": "shared: each run sees the earlier runs of this job."
+        },
+        "overlap": {
+          "enum": [
+            "skip",
+            "queue",
+            "parallel"
+          ],
+          "default": "skip",
+          "description": "When a run falls due and the previous run of this job still runs."
+        },
+        "queue_max": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "With overlap queue: how many runs can wait."
+        },
+        "catch_up": {
+          "enum": [
+            "skip",
+            "latest",
+            "all"
+          ],
+          "description": "Runs that fell due while Belle was stopped. latest runs the newest one, late. all runs each one, one after another. Default: latest for once, skip otherwise."
+        },
+        "questions": {
+          "enum": [
+            "refuse",
+            "ask_target"
+          ],
+          "default": "refuse",
+          "description": "A question or an approval in a run. ask_target posts it in the delivery target, and the run waits for an answer."
+        },
+        "turn": {
+          "type": "object",
+          "description": "What each run uses. Each name must be in the backend's catalog and allowed in this conversation and in the target. Omit a field for the default.",
+          "properties": {
+            "model": {
+              "type": "string"
+            },
+            "skills": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Skills that each run loads."
+            },
+            "expert": {
+              "type": "string"
+            },
+            "subagents": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "The only subagents that a run can use."
+            }
+          }
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  },
+  {
+    "name": "schedule_list",
+    "description": "Show the jobs of this conversation, or one job, each with its next runs and its last run. Use it to find a job_id. The result gives every job: nothing is cut. If the result is too large, the tool refuses and says which argument to lower.",
+    "input_params": {
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "type": "string",
+          "description": "Show only this job."
+        },
+        "next_runs": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 3,
+          "description": "How many next runs to show for each job."
+        }
+      }
+    }
+  },
+  {
+    "name": "schedule_update",
+    "description": "Change a job. Pass job_id and only the fields to change, in the forms and with the rules of schedule_create. when and turn each replace the whole object. enabled: false pauses the job and true resumes it. A run that is running continues. The result gives the job and the names of the fields that changed.",
+    "input_params": {
+      "type": "object",
+      "required": [
+        "job_id"
+      ],
+      "properties": {
+        "job_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\r\\n]+$"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "when": {
+          "type": "object"
+        },
+        "deliver_to": {
+          "oneOf": [
+            {
+              "enum": [
+                "thread",
+                "conversation",
+                "creator_dm"
+              ]
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
+        "session": {
+          "enum": [
+            "fresh",
+            "shared"
+          ]
+        },
+        "overlap": {
+          "enum": [
+            "skip",
+            "queue",
+            "parallel"
+          ]
+        },
+        "queue_max": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "catch_up": {
+          "enum": [
+            "skip",
+            "latest",
+            "all"
+          ]
+        },
+        "questions": {
+          "enum": [
+            "refuse",
+            "ask_target"
+          ]
+        },
+        "turn": {
+          "type": "object"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  {
+    "name": "schedule_delete",
+    "description": "Delete a job. Belle cancels each pending run of it and stops each running run. The answer lists each of these runs with its state, as session_cancel does. This cannot be undone: to stop the job for a time, use schedule_update with enabled: false. keep_history: true keeps its past runs readable with schedule_runs. Kept runs may expire later.",
+    "input_params": {
+      "type": "object",
+      "required": [
+        "job_id"
+      ],
+      "properties": {
+        "job_id": {
+          "type": "string"
+        },
+        "keep_history": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  },
+  {
+    "name": "schedule_run_now",
+    "description": "Start one run of a job now, as a scheduled run starts, with nobody waiting. A fresh job's run gets a new detached session. A shared job's run joins the job's detached session. This answers at once and does not wait for the run. deliver_to and turn change this run only, with the rules of schedule_create. The job does not change, and the run does not count toward max_runs.",
+    "input_params": {
+      "type": "object",
+      "required": [
+        "job_id"
+      ],
+      "properties": {
+        "job_id": {
+          "type": "string"
+        },
+        "deliver_to": {
+          "oneOf": [
+            {
+              "enum": [
+                "thread",
+                "conversation",
+                "creator_dm"
+              ]
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
+        "turn": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  {
+    "name": "schedule_runs",
+    "description": "Show past and current runs of the jobs of this conversation, newest first, with what each run said. When coverage.status is partial, more runs match: call again with cursor set to coverage.next_cursor and every other argument unchanged. coverage.kept_since_iso_utc says from when the history is complete. A result that you may not read is null, and hidden_reason says why.",
+    "input_params": {
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "type": "string",
+          "description": "Only this job's runs. A deleted job whose history is kept is accepted."
+        },
+        "states": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed",
+              "interrupted",
+              "cancelled",
+              "skipped",
+              "missed"
+            ]
+          },
+          "minItems": 1,
+          "description": "Only runs in these states."
+        },
+        "after_iso_utc": {
+          "type": "string",
+          "description": "Only runs due after this UTC instant, such as 2026-10-17T18:00:00Z."
+        },
+        "before_iso_utc": {
+          "type": "string",
+          "description": "Only runs due before this UTC instant."
+        },
+        "max_runs": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 20
+        },
+        "result_max_chars": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 2000,
+          "description": "Longest result text for each run. 0 gives no text. A larger value than the text gives all of it."
+        },
+        "cursor": {
+          "type": "string",
+          "description": "Paging token from coverage.next_cursor. Copy it unchanged."
+        }
+      }
+    }
+  }
+]

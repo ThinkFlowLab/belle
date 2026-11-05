@@ -1,0 +1,6 @@
+{"model_name":"typesafe/jev-1.13","api":"openrouter"}
+{"model_name":"typesafe/jev-1.14","api":"openrouter"}
+{"model_name":"perplexity/pplx-decider-v1.2","api":"openrouter"}
+{"model_name":"openai/gpt-6-luna-decisions","api":"openrouter"}
+{"model_name":"scaledown/classify-1","api":"openrouter_text_state"}
+{"model_name":"cloudflare/clef","api":"openrouter"}

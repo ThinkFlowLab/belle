@@ -1,0 +1,104 @@
+ARG PYTHON_IMAGE=docker.io/library/python:3.12-slim-bookworm
+ARG NODE_IMAGE=docker.io/library/node:22-bookworm-slim
+ARG JIUWENSWARM_REPO=https://github.com/harenome/jiuwenswarm.git
+ARG JIUWENSWARM_REF=belle/20261013
+ARG AGENT_CORE_REPO=https://github.com/harenome/agent-core.git
+ARG AGENT_CORE_REF=belle/20261013
+
+FROM ${PYTHON_IMAGE} AS git-source
+ARG DEBIAN_FRONTEND=noninteractive
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/apt/lists,sharing=locked \
+    apt -o Dir::State::lists=/var/apt/lists update \
+    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends \
+        ca-certificates git
+
+FROM git-source AS jiuwenswarm-source
+ARG JIUWENSWARM_REPO
+ARG JIUWENSWARM_REF
+RUN git init /usr/local/src/jiuwenswarm \
+    && git -C /usr/local/src/jiuwenswarm fetch --depth 1 "$JIUWENSWARM_REPO" "$JIUWENSWARM_REF" \
+    && git -C /usr/local/src/jiuwenswarm checkout --detach FETCH_HEAD \
+    && rm -rf /usr/local/src/jiuwenswarm/.git
+
+# Build on the runtime's Debian release so the helper does not require a newer glibc.
+FROM docker.io/library/rust:1.99.1-bookworm AS matrix-helper
+ENV CARGO_TARGET_DIR=/cargo-target \
+    SOURCE_DATE_EPOCH=0 \
+    RUSTFLAGS="--remap-path-prefix=/usr/local/cargo/registry/src=/crates"
+WORKDIR /helper
+COPY src/belle_agent/platforms/matrix/helper /helper
+COPY containers/copy-cargo-licenses.py /copy-cargo-licenses.py
+RUN --mount=type=cache,id=belle-matrix-cargo-registry,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=belle-matrix-cargo-target,target=/cargo-target \
+    cargo test --release --locked \
+    && cargo build --release --locked \
+    && cp /cargo-target/release/belle-matrix-helper /belle-matrix-helper \
+    && python3 /copy-cargo-licenses.py
+
+FROM ${NODE_IMAGE} AS frontend
+COPY --from=jiuwenswarm-source /usr/local/src/jiuwenswarm/ /build/jiuwenswarm/
+WORKDIR /build/jiuwenswarm/jiuwenswarm/channels/web/frontend
+RUN npm ci --no-audit --no-fund && npm run build
+
+FROM git-source AS build
+ARG DEBIAN_FRONTEND=noninteractive
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/apt/lists,sharing=locked \
+    apt -o Dir::State::lists=/var/apt/lists update \
+    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends \
+        build-essential
+ENV VIRTUAL_ENV=/opt/venv PATH=/opt/venv/bin:$PATH
+RUN python -m venv /opt/venv
+COPY --from=jiuwenswarm-source /usr/local/src/jiuwenswarm/ /build/jiuwenswarm/
+COPY --from=frontend /build/jiuwenswarm/jiuwenswarm/channels/web/frontend/dist \
+    /build/jiuwenswarm/jiuwenswarm/channels/web/frontend/dist
+COPY --from=frontend /build/jiuwenswarm/jiuwenswarm/resources/agent/workspace/agent-data.json \
+    /build/jiuwenswarm/jiuwenswarm/resources/agent/workspace/agent-data.json
+COPY pyproject.toml README.md LICENSE NOTICE /build/belle/
+COPY src/belle_agent /build/belle/src/belle_agent
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install '/build/jiuwenswarm[a2a,claude,codex]'
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install '/build/belle[slack,mattermost,matrix,openjiuwen]'
+ARG AGENT_CORE_REPO
+ARG AGENT_CORE_REF
+# JiuwenSwarm pins another OpenJiuwen commit with the same package version.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip uninstall -y openjiuwen \
+    && pip install "git+${AGENT_CORE_REPO}@${AGENT_CORE_REF}" \
+    && pip check
+
+FROM ${PYTHON_IMAGE}
+ARG DEBIAN_FRONTEND=noninteractive
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/apt/lists,sharing=locked \
+    apt -o Dir::State::lists=/var/apt/lists update \
+    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends \
+        ca-certificates git libgomp1 libpq5 \
+    && useradd --uid 1000 --create-home --shell /usr/sbin/nologin app
+COPY --from=build /opt/venv /opt/venv
+COPY --from=jiuwenswarm-source /usr/local/src/jiuwenswarm/LICENSE /usr/share/licenses/jiuwenswarm/LICENSE
+COPY --from=jiuwenswarm-source /usr/local/src/jiuwenswarm/OPEN_SOURCE_SOFTWARE_NOTICE.md /usr/share/licenses/jiuwenswarm/NOTICE.md
+COPY LICENSE NOTICE /usr/share/licenses/belle-agent/
+COPY --from=matrix-helper /belle-matrix-helper /usr/local/bin/belle-matrix-helper
+COPY --from=matrix-helper /cargo-licenses /usr/share/licenses/belle-matrix-helper/dependencies
+COPY --chown=app:app examples/config/belle-config.yaml /home/app/.config/belle-agent/config.yaml
+COPY containers/jiuwenswarm/default-config.yaml /usr/local/share/belle-agent/jiuwenswarm-config.yaml
+COPY containers/jiuwenswarm/entrypoint.sh /usr/local/bin/jiuwenswarm-container
+# Keep this .env empty: JiuwenSwarm loads it with override=True, so its
+# template would replace values passed through Podman's --env-file.
+RUN chmod 0755 /usr/local/bin/jiuwenswarm-container \
+    && install -d -o app -g app /home/app/.jiuwenswarm /home/app/.jiuwenswarm/config \
+    && install -o app -g app -m 0600 /dev/null /home/app/.jiuwenswarm/config/.env \
+    && install -o app -g app -m 0644 /usr/local/share/belle-agent/jiuwenswarm-config.yaml \
+        /home/app/.jiuwenswarm/config/config.yaml
+ENV HOME=/home/app \
+    PATH=/opt/venv/bin:$PATH \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+USER app
+WORKDIR /home/app
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/local/bin/jiuwenswarm-container"]
+CMD ["jiuwenswarm-start", "all"]

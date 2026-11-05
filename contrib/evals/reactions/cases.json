@@ -1,0 +1,2068 @@
+[
+  {
+    "id": "joke_laptop_sleep",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Maya",
+    "user": "I told my laptop I needed a break and it went to sleep. Relatable.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "joy"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "joke_git_blame",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "git blame says it was me. git blame is a snitch.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "joy"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "joke_monday_voicemail",
+    "conversation_kind": "group_dm",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "Monday called. I let it go to voicemail.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "joy"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "joke_hard_problems",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Chen",
+    "user": "There are only two hard problems: cache invalidation, naming things, and off-by-one errors.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "joy"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "joke_staging_vibes",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Alex",
+    "user": "Staging has always been just vibes.",
+    "recent_messages": [
+      {
+        "author": "Sam",
+        "text": "Who deleted the staging banner?"
+      },
+      {
+        "author": "Omar",
+        "text": "That was me, sorry. Staging is now officially a vibe."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "joy"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "joke_earlier_bot_joke",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Lena",
+    "user": "@Belle that dashboard joke you made yesterday still has me laughing",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": false,
+      "emoji": "joy"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "joke_cat_approves_pr",
+    "conversation_kind": "group_dm",
+    "bot_name": "Belle",
+    "sender": "Lena",
+    "user": "My cat just walked across the keyboard and approved a PR.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "joy"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "joke_coffee_count",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Omar",
+    "user": "This is my fourth coffee and it's only 9. Send help, or more coffee.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "joy"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "thanks_docker_volumes",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "Perfect, thanks Belle!",
+    "recent_messages": [
+      {
+        "author": "Priya",
+        "text": "@Belle what's the command to list docker volumes?"
+      },
+      {
+        "author": "Belle",
+        "text": "`docker volume ls` lists them."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": false,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "thanks_short_thx",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Alex",
+    "user": "thx",
+    "recent_messages": [
+      {
+        "author": "Alex",
+        "text": "@Belle what's our default log retention?"
+      },
+      {
+        "author": "Belle",
+        "text": "The retention default is 30 days."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": false,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "thanks_cheers_fixed",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "@Belle cheers, that fixed it",
+    "recent_messages": [
+      {
+        "author": "Jordan",
+        "text": "@Belle my build says 'module not found: requests'"
+      },
+      {
+        "author": "Belle",
+        "text": "Run `pip install requests` in the same virtualenv your build uses."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": false,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "thanks_makes_sense",
+    "conversation_kind": "group_dm",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "Got it, that makes sense now. Thanks @Belle.",
+    "recent_messages": [
+      {
+        "author": "Sam",
+        "text": "@Belle why does my cron job run an hour off after the clock change?"
+      },
+      {
+        "author": "Belle",
+        "text": "Cron uses the server's local time, so DST shifts it. Set the server or the schedule to UTC."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": false,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "thanks_ooo_draft",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Maya",
+    "user": "Love it, sending as is. Thank you!",
+    "recent_messages": [
+      {
+        "author": "Maya",
+        "text": "@Belle draft a two-line OOO message"
+      },
+      {
+        "author": "Belle",
+        "text": "I'm out until Monday with limited access. For anything urgent, please contact Sam."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": false,
+      "emoji": "heart"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "thanks_resolved_sandbox",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Chen",
+    "user": "ok that resolves it for me, appreciate the help Belle",
+    "recent_messages": [
+      {
+        "author": "Chen",
+        "text": "@Belle is the sandbox API rate limited?"
+      },
+      {
+        "author": "Belle",
+        "text": "Yes, 60 requests per minute per key."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": false,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "thanks_group_oncall",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "Thanks everyone for covering my on-call shift last week!",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "heart"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "thanks_after_summary",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Tara",
+    "user": "That summary was exactly what I needed, thank you Belle.",
+    "recent_messages": [
+      {
+        "author": "Tara",
+        "text": "@Belle summarize the vendor email in two lines"
+      },
+      {
+        "author": "Belle",
+        "text": "The vendor can deliver by 20 June if we confirm by Friday. Pricing is unchanged."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": false,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "celebrate_release_live",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "v2.4 is live! Zero rollbacks.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "tada"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "celebrate_ci_green",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "CI is green for the first time in two weeks.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "tada"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "celebrate_promotion",
+    "conversation_kind": "group_dm",
+    "bot_name": "Belle",
+    "sender": "Omar",
+    "user": "Just found out I got promoted to senior engineer!",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "clap"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "celebrate_contract",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Lena",
+    "user": "We signed the Acme contract this morning.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "tada"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "celebrate_birthday",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Diego",
+    "user": "Today is Tara's birthday, everyone!",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "tada"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "celebrate_leak_fixed",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "Finally tracked down the memory leak. It was a missing close() in the retry path.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "tada"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "celebrate_exam",
+    "conversation_kind": "group_dm",
+    "bot_name": "Belle",
+    "sender": "Chen",
+    "user": "I passed my certification exam!",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "clap"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "celebrate_baby",
+    "conversation_kind": "group_dm",
+    "bot_name": "Belle",
+    "sender": "Tara",
+    "user": "Our baby girl arrived last night. Mom and baby are doing great.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "heart"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "celebrate_lease",
+    "conversation_kind": "group_dm",
+    "bot_name": "Belle",
+    "sender": "Diego",
+    "user": "Signed the lease on the new apartment today!",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "tada"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "celebrate_latency",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Chen",
+    "user": "p99 latency dropped from 800ms to 210ms after the index change.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "tada"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "celebrate_anniversary",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Omar",
+    "user": "Five years at the company today.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "clap"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "celebrate_welcome",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "Hi all, I just joined the platform team today.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "wave"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "ack_agree_freeze",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Alex",
+    "user": "+1, works for me.",
+    "recent_messages": [
+      {
+        "author": "Maya",
+        "text": "Proposal: freeze merges Thursday 5pm for the release."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "ack_taking_doc",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "I'll take it.",
+    "recent_messages": [
+      {
+        "author": "Sam",
+        "text": "Someone needs to update the onboarding doc before Monday."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "ack_fix_pushed",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "Pushed the fix for the login bug.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "ack_looking_alert",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Chen",
+    "user": "Looking into the alert now.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "ack_move_sync_fyi",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Maya",
+    "user": "@Belle FYI I moved the sync to 3pm. No action needed.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": false,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "ack_belle_job_done",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "great, thanks",
+    "recent_messages": [
+      {
+        "author": "Belle",
+        "text": "The nightly job finished: 214 rows processed, no errors."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": false,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "ack_belle_schedule_change",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "Works for me.",
+    "recent_messages": [
+      {
+        "author": "Belle",
+        "text": "Heads up: I'll post the weekly digest at 9am instead of 10am."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": false,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "ack_pizza_arrived",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Diego",
+    "user": "Pizza is here in the kitchen!",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "tada"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "ack_weekend_hike",
+    "conversation_kind": "group_dm",
+    "bot_name": "Belle",
+    "sender": "Tara",
+    "user": "Off to hike all weekend, phones are banned.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "wave"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "ack_small_mistake",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "Ha, I pushed to main instead of my branch. Reverted already, all good.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "joy"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "ack_typo_notes",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Maya",
+    "user": "I wrote 'shopping' instead of 'shipping' in the release notes for an hour. Fixed now.",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "joy"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "ask_mutex_semaphore",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Alex",
+    "user": "@Belle what's the difference between a mutex and a semaphore?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "ask_http_429",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "@Belle what does HTTP 429 mean and how should clients handle it?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "ask_git_undo_commit",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "@Belle how do I undo my last git commit but keep the changes?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "ask_cron_weekdays",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "@Belle what's the cron expression for every weekday at 9am?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "ask_fahrenheit",
+    "conversation_kind": "group_dm",
+    "bot_name": "Belle",
+    "sender": "Tara",
+    "user": "@Belle convert 72 degrees Fahrenheit to Celsius please",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "ask_sqlite_internal_tool",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Maya",
+    "user": "@Belle is SQLite fine for a small internal tool with about 10 users?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "ask_bigger_number",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Omar",
+    "user": "@Belle which is bigger: 2^40 or 10^12?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "ask_postgres_port",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Lena",
+    "user": "@Belle what port does PostgreSQL listen on by default?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "req_status_update",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Maya",
+    "user": "@Belle can you draft a two-sentence status update for the launch delay?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "req_friendlier_rewrite",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Alex",
+    "user": "@Belle rewrite this to be friendlier: 'Your request was denied. Resubmit.'",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "req_summarize_thread",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "@Belle summarize the thread above in three bullets",
+    "recent_messages": [
+      {
+        "author": "Priya",
+        "text": "The checkout page times out for EU users."
+      },
+      {
+        "author": "Chen",
+        "text": "Looks like the EU read replica is lagging by 90 seconds."
+      },
+      {
+        "author": "Jordan",
+        "text": "I can fail over to the primary, but that raises cost for the day."
+      },
+      {
+        "author": "Priya",
+        "text": "Do it, cost is fine until we fix replication."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "req_zip_regex",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Chen",
+    "user": "@Belle write a regex that matches a US ZIP code with optional +4",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "req_dashboard_names",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Omar",
+    "user": "@Belle suggest three names for the new internal metrics dashboard",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "req_action_items",
+    "conversation_kind": "group_dm",
+    "bot_name": "Belle",
+    "sender": "Tara",
+    "user": "@Belle list the action items from this discussion",
+    "recent_messages": [
+      {
+        "author": "Maya",
+        "text": "I'll send the revised budget to finance by Wednesday."
+      },
+      {
+        "author": "Diego",
+        "text": "I can update the vendor contract draft after that."
+      },
+      {
+        "author": "Tara",
+        "text": "And someone should book the offsite venue before prices go up."
+      },
+      {
+        "author": "Lena",
+        "text": "I'll look at venues tomorrow."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "followup_open_ports_macos",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "And on macOS?",
+    "recent_messages": [
+      {
+        "author": "Priya",
+        "text": "@Belle how do I list open ports on Linux?"
+      },
+      {
+        "author": "Belle",
+        "text": "Use `ss -tulpn`."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "followup_cron_quarter_hour",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Maya",
+    "user": "Can you make it every 15 minutes instead?",
+    "recent_messages": [
+      {
+        "author": "Maya",
+        "text": "@Belle cron expression for every hour?"
+      },
+      {
+        "author": "Belle",
+        "text": "`0 * * * *` runs at minute 0 of every hour."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "followup_add_owners",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "Can you add the owners next to each item?",
+    "recent_messages": [
+      {
+        "author": "Maya",
+        "text": "I'll own the budget."
+      },
+      {
+        "author": "Diego",
+        "text": "I'll own the contract."
+      },
+      {
+        "author": "Sam",
+        "text": "@Belle list the open items."
+      },
+      {
+        "author": "Belle",
+        "text": "Open items: 1. Revised budget. 2. Vendor contract draft."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "followup_shorter_names",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Omar",
+    "user": "Shorter ones please.",
+    "recent_messages": [
+      {
+        "author": "Omar",
+        "text": "@Belle suggest names for the metrics dashboard"
+      },
+      {
+        "author": "Belle",
+        "text": "Pulse Board, Vitals Overview, Signal Center."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "room_port_8080",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Alex",
+    "user": "Does anyone know how to see which process is using port 8080 on Linux?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "room_too_many_requests",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "Anyone remember which HTTP status code means 'Too Many Requests'?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "room_merge_vs_rebase",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Chen",
+    "user": "Can someone remind me of the difference between git merge and rebase?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "correct_404_crash",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "Heads up, HTTP 404 means the server crashed, so we should page on any 404.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "correct_berlin_utc",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Maya",
+    "user": "Berlin is UTC+1 all year, so the 10:00 Berlin demo is 09:00 UTC all year.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "correct_freeze_day",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "Reminder to all: code freeze starts Friday 17:00.",
+    "recent_messages": [
+      {
+        "author": "Belle",
+        "text": "The code freeze starts Thursday 17:00 per the release plan."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "correct_keys_in_repo",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "We can store the API keys in the repo, it's private so it's fine.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "correct_rm_rf_staging",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Alex",
+    "user": "To free the disk I'm going to run `rm -rf /var/lib/postgresql` on the staging DB host, should be safe.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "correct_git_revert",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Chen",
+    "user": "Rolling back is pointless, a git revert permanently erases the bad commit from history.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "correct_pr_deadline",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Tara",
+    "user": "PR deadline is Wednesday per the doc, so I'll send mine Tuesday night.",
+    "recent_messages": [
+      {
+        "author": "Omar",
+        "text": "Updated the planning doc: PR deadline moved to Tuesday noon."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "badnews_invoice_export",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Maya",
+    "user": "great, I'll tell finance the October export is done",
+    "recent_messages": [
+      {
+        "author": "Maya",
+        "text": "@Belle please run the invoice export for October."
+      },
+      {
+        "author": "Belle",
+        "text": "Starting the October invoice export now."
+      },
+      {
+        "author": "Belle",
+        "text": "The export failed: the billing API returned 503 for 212 of 480 invoices."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "badnews_deploy_rolled_back",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "Awesome, so v3.2 is live? Telling support now.",
+    "recent_messages": [
+      {
+        "author": "Belle",
+        "text": "Deploy of api v3.2 to prod failed health checks and rolled back automatically."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "badnews_backup_failed",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Alex",
+    "user": "@Belle did last night's backup finish?",
+    "recent_messages": [
+      {
+        "author": "Belle",
+        "text": "Backup job started at 01:00."
+      },
+      {
+        "author": "Belle",
+        "text": "Backup job failed at 01:42: disk full on /mnt/backup."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "badnews_cert_renewal",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Alex",
+    "user": "@Belle can you confirm the cert is renewed?",
+    "recent_messages": [
+      {
+        "author": "Belle",
+        "text": "Renewal attempt for api.example.com failed: DNS challenge timed out."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "badnews_launch_load_test",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Tara",
+    "user": "@Belle so we're good to launch Monday, right?",
+    "recent_messages": [
+      {
+        "author": "Omar",
+        "text": "Load test hit a 40% error rate at 2k rps. The target was under 1%."
+      },
+      {
+        "author": "Priya",
+        "text": "That's bad."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "badnews_migration_unsafe",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "@Belle is the migration safe to run on prod now?",
+    "recent_messages": [
+      {
+        "author": "Belle",
+        "text": "Dry run on staging dropped orders.legacy_id and customers.fax, which prod still reads."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "badnews_bot_job_corrupted",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Lena",
+    "user": "@Belle the nightly job you run corrupted the customer table. Support is flooded.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "action_restore_pg_dump",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Chen",
+    "user": "@Belle what's the exact command to restore backup.sql into the postgres database app?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "action_rotate_aws_key",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "@Belle give me the steps to rotate an AWS access key",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "action_docker_timezone",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "@Belle how do I set the timezone inside a docker container?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "action_kubectl_logs",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Omar",
+    "user": "@Belle what's the kubectl command to tail logs of a pod called api-7f9?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "thanksplus_delete_volume",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "Thanks! And how do I delete one?",
+    "recent_messages": [
+      {
+        "author": "Priya",
+        "text": "@Belle how do I list docker volumes?"
+      },
+      {
+        "author": "Belle",
+        "text": "`docker volume ls` lists them."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "thanksplus_background_flag",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "Thanks Belle. One more thing: what's the flag to run the container in the background?",
+    "recent_messages": [
+      {
+        "author": "Sam",
+        "text": "@Belle how do I run a container?"
+      },
+      {
+        "author": "Belle",
+        "text": "`docker run IMAGE`."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "thanksplus_tag_image",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "Cheers @Belle, that worked. Can you also show me how to tag the image?",
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "thanksplus_email",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Tara",
+    "user": "Great summary @Belle, could you now turn it into a short email?",
+    "recent_messages": [
+      {
+        "author": "Belle",
+        "text": "Summary: the vendor can deliver by 20 June if we confirm by Friday. Pricing is unchanged."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": true,
+      "audience": "you",
+      "response_requested": true,
+      "emoji": "thumbsup"
+    },
+    "suite": "react"
+  },
+  {
+    "id": "fact_old_export_retired",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "Let's just use the old export script for the customer report, it's quick.",
+    "recent_messages": [
+      {
+        "author": "Priya",
+        "text": "The customer needs the report by EOD."
+      },
+      {
+        "author": "Belle",
+        "text": "Note: the old export script was removed last week in PR #812 and no longer runs."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "fact_holiday_demo",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Alex",
+    "user": "Perfect, I'll tell the client the demo is Monday the 14th.",
+    "recent_messages": [
+      {
+        "author": "Maya",
+        "text": "Let's schedule the demo for Monday the 14th."
+      },
+      {
+        "author": "Belle",
+        "text": "The client's office is closed Monday the 14th for a public holiday."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "fact_api_deprecated",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Chen",
+    "user": "I'll build the integration against v1 of the billing API since the docs are clearer.",
+    "recent_messages": [
+      {
+        "author": "Belle",
+        "text": "The billing API v1 is deprecated and shuts down 1 September; v2 is the supported version."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "other_review_pr",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Alex",
+    "user": "Priya, did you get a chance to review my PR?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "a person",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "other_cover_oncall",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "@Jordan can you cover Thursday's on-call?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "a person",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "other_vendor_call_time",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Lena",
+    "user": "Sam, what time is the vendor call tomorrow?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "a person",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "other_blocked_keys",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Tara",
+    "user": "Maya, are you still blocked on the API keys?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "a person",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "other_q3_numbers",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Omar",
+    "user": "@Chen do you have the Q3 numbers?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "a person",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "other_why_postgres",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Diego",
+    "user": "Omar, remind me why we picked Postgres?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "a person",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "other_offsite_dinner",
+    "conversation_kind": "group_dm",
+    "bot_name": "Belle",
+    "sender": "Maya",
+    "user": "Lena, are you joining the offsite dinner?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "a person",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "other_send_invoice",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "@Diego please send me the invoice when you get a moment",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "a person",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "other_windows_test",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "And did you test it on Windows?",
+    "recent_messages": [
+      {
+        "author": "Sam",
+        "text": "Chen, the installer script is done?"
+      },
+      {
+        "author": "Chen",
+        "text": "Yes, tested on macOS and Linux."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "a person",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "other_deploybot_status",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Alex",
+    "user": "@DeployBot status of prod",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "a person",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "other_deploybot_rollback",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "@DeployBot roll back api to the previous release",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "a person",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "answered_staging_backup",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "Yes, nightly at 2am UTC with 14-day retention.",
+    "recent_messages": [
+      {
+        "author": "Alex",
+        "text": "Does anyone know if the staging DB gets backed up?"
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "answered_runbook",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "It's in Notion under Payments > Runbooks.",
+    "recent_messages": [
+      {
+        "author": "Priya",
+        "text": "Where does the runbook for the payment queue live?"
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "answered_vpn_endpoint",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "vpn.corp.example, port 443.",
+    "recent_messages": [
+      {
+        "author": "Chen",
+        "text": "Anyone have the VPN endpoint handy?"
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "answered_standup_time",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Maya",
+    "user": "Standup moved to 10:15 today.",
+    "recent_messages": [
+      {
+        "author": "Omar",
+        "text": "What time is standup today?"
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "answered_timezone",
+    "conversation_kind": "group_dm",
+    "bot_name": "Belle",
+    "sender": "Diego",
+    "user": "Lisbon is UTC+0 in winter and UTC+1 in summer.",
+    "recent_messages": [
+      {
+        "author": "Tara",
+        "text": "Quick check: what's Lisbon's offset from UTC right now?"
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "answered_wifi",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Lena",
+    "user": "The guest wifi password is on the card at reception.",
+    "recent_messages": [
+      {
+        "author": "Alex",
+        "text": "Where do I find the guest wifi password?"
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "logistics_lunch",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Diego",
+    "user": "Anyone up for lunch at 12:30?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "logistics_coffee",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Omar",
+    "user": "Anyone want coffee from the café downstairs?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "logistics_3pm_moved",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "Is the 3pm still happening or did it move?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "logistics_late_standup",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "Running 5 minutes late to standup.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "logistics_back_from_lunch",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "Back from lunch.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "logistics_who_drives",
+    "conversation_kind": "group_dm",
+    "bot_name": "Belle",
+    "sender": "Tara",
+    "user": "Who's driving to the offsite?",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "the room",
+      "response_requested": true,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "opinion_second_mockup",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Maya",
+    "user": "Honestly I prefer the second mockup.",
+    "recent_messages": [
+      {
+        "author": "Alex",
+        "text": "Here are the two homepage mockups."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "opinion_onboarding_enterprise",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Chen",
+    "user": "Not sure the new onboarding flow tests well with enterprise users.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "opinion_retro_slot",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "I think Tuesday is better for the retro, people are less swamped.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "opinion_naming_hour",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "We've been going back and forth on this naming for an hour.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "opinion_vendor_slow",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Lena",
+    "user": "Honestly the vendor's response time has been disappointing.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "opinion_sleep_on_it",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Omar",
+    "user": "Let me think about it overnight.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "passing_digest_accurate",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Sam",
+    "user": "Belle's weekly digest is usually pretty accurate, I just skim the top.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "passing_asked_belle_before",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Chen",
+    "user": "Last time I asked Belle about this it gave me a different answer, so I double-checked with Sam.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "passing_jira_clunky",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "Belle is great but the Jira integration is still clunky.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "passing_added_to_infra",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Jordan",
+    "user": "I added Belle to the #infra channel yesterday.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "closed_thread_done",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Alex",
+    "user": "Done, closing this thread out.",
+    "recent_messages": [
+      {
+        "author": "Maya",
+        "text": "Is the cache issue fixed?"
+      },
+      {
+        "author": "Alex",
+        "text": "Deployed the config change, error rate is back to normal."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "closed_will_ping_vendor",
+    "conversation_kind": "public_channel",
+    "bot_name": "Belle",
+    "sender": "Priya",
+    "user": "I'll ping the vendor and see what they say.",
+    "recent_messages": [
+      {
+        "author": "Sam",
+        "text": "We still don't have an answer on the SLA."
+      }
+    ],
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  },
+  {
+    "id": "closed_regroup_after_call",
+    "conversation_kind": "private_channel",
+    "bot_name": "Belle",
+    "sender": "Tara",
+    "user": "Let's regroup after the customer call and decide.",
+    "decision_expected": {
+      "deserves_emoji": false,
+      "audience": "nobody",
+      "response_requested": false,
+      "emoji": "no_reaction"
+    },
+    "suite": "no_react"
+  }
+]

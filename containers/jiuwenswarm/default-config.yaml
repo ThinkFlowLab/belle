@@ -1,0 +1,14 @@
+# JiuwenSwarm adds its other template settings at startup.
+preferred_language: en
+channels:
+  slack:
+    enabled: true
+  # On when MATTERMOST_URL is set; Belle's platforms.mattermost holds the settings.
+  mattermost:
+    enabled: ${MATTERMOST_URL}
+  # Account settings stay in Belle's config.
+  matrix:
+    enabled: ${MATRIX_ENABLED}
+extensions:
+  allow_overrides:
+    - channels.slack

@@ -1,0 +1,52 @@
+{
+  "audience": {
+    "type": "choice",
+    "instructions": "Who is the request in `last_message` directed at? Judge `last_message` on its own. An earlier message that was directed at someone is not a reason to answer for this one.",
+    "criteria": {
+      "nobody": "It asks nothing of anybody. A remark, a joke, an observation, or a statement of what the sender has done or intends to do.",
+      "the room": "It puts something to everyone present, and any of them could take it up. Nobody in particular is named.",
+      "a person": "It is aimed at one named participant other than the one named in `bot_name`, and nobody else is expected to answer.",
+      "you": "It is aimed at the participant named in `bot_name`. Mentioning that name in passing is not this: the request itself has to be for that participant."
+    }
+  },
+  "already_answered": {
+    "type": "noul",
+    "instructions": "Someone in `recent_messages` already gave what `last_message` specifically asks for."
+  },
+  "response_requested": {
+    "type": "noul",
+    "instructions": "`last_message` requests an answer or acknowledgement for this occurrence. Merely referring to an earlier request or answer does not count."
+  },
+  "claim": {
+    "type": "noul",
+    "instructions": "`last_message` asserts something as fact."
+  },
+  "needs_work": {
+    "type": "noul",
+    "instructions": "`last_message` asks for something to be done or changed, not only for something to be said."
+  },
+  "worth_remembering": {
+    "type": "noul",
+    "instructions": "`last_message` holds something that is still needed later in this conversation."
+  },
+  "deserves_emoji": {
+    "type": "noul",
+    "instructions": "An emoji reaction from `bot_name` to `last_message` would be appropriate in this conversation. Consider the message’s meaning, tone, and context."
+  },
+  "emoji": {
+    "type": "choice",
+    "instructions": "Which emoji reaction from `bot_name` would best fit `last_message` in this conversation?",
+    "criteria": {
+      "joy": "Humor or shared laughter.",
+      "thumbsup": "Agreement or a brief acknowledgement.",
+      "heart": "Warmth, appreciation, or support.",
+      "thinking_face": "Interest or a point to consider.",
+      "tada": "A milestone, celebration, or good news.",
+      "clap": "Congratulations or recognition for someone’s achievement.",
+      "wave": "A greeting or farewell.",
+      "open_mouth": "Surprise or an unexpected result.",
+      "other_emoji": "An unlisted emoji fits better than these suggestions.",
+      "no_reaction": "No emoji reaction fits this message."
+    }
+  }
+}

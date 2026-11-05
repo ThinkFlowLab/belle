@@ -1,0 +1,179 @@
+#!/bin/sh
+# Helper for the Slack CLI image. Subcommands:
+#   setup     setup [--challenge <code>] [--force]: log in if no login exists,
+#             create or update the app, set its name, get and check the two
+#             tokens, and write /project/out/slack.env
+#   init      write /project/.slack/{hooks,config}.json for a Belle manifest
+#   manifest  print the manifest as JSON (the CLI's get-manifest hook)
+#   tokens    write the Belle tokens the CLI passes to /project/out (the CLI's
+#             start and deploy hooks)
+#   name      name <app id> <team id>: set the app's name and bot display name
+#             to the manifest's, which `slack app install -E local` suffixes
+#             with " (local)". Prints ok or Slack's error code.
+# The manifest is read from /manifest/manifest.yaml, and setup's default icon
+# from /manifest/icon.png. The image holds both. A read-only mount replaces each.
+# BELLE_APP_NAME sets the app's display name (default Belle, at most 35
+# characters). BELLE_COMMAND_NAME names the slash command, without the slash
+# (default belle). It must equal slack.command_name in Belle's configuration.
+# BELLE_APP_ICON names an image under /project that `manifest` adds as the
+# manifest's icon; the CLI uploads it on install. Unset adds no icon.
+# SLACK_API_URL (default https://slack.com/api) is where `name` sends its call.
+# AUTH_FILE (default /auth/credentials.json) is the login file `name` and
+# `setup` read.
+set -eu
+umask 077
+P=/project
+CREDENTIALS=${AUTH_FILE:-/auth/credentials.json}
+manifest() {
+  NAME="${BELLE_APP_NAME:-Belle}" COMMAND="/${BELLE_COMMAND_NAME:-belle}" yq -o=json "$@" '
+    .display_information.name = strenv(NAME)
+    | .features.bot_user.display_name = strenv(NAME)
+    | with(.features.slash_commands[]?; .command = strenv(COMMAND) | .description = "Run a Belle command")
+    | del(.features.slash_commands | select(length == 0))
+  ' "${MANIFEST_FILE:-/manifest/manifest.yaml}"
+}
+fail() { echo "setup: $*" >&2; exit 1; }
+case "${1:-}" in
+init)
+  mkdir -p "$P/.slack"
+  cat > "$P/.slack/hooks.json" <<'J'
+{
+  "hooks": {
+    "get-manifest": "belle-slack-project manifest",
+    "start": "belle-slack-project tokens",
+    "deploy": "belle-slack-project tokens"
+  },
+  "config": { "sdk-managed-connection-enabled": true }
+}
+J
+  # Not secret: the CLI reads this file as configuration.
+  cat > "$P/.slack/config.json" <<'J'
+{ "manifest": { "source": "local" } }
+J
+  chmod 644 "$P/.slack/hooks.json" "$P/.slack/config.json" ;;
+manifest)
+  if [ -n "${BELLE_APP_ICON:-}" ]; then
+    # Not a field of Slack's manifest: the CLI reads it, so `name` leaves it out.
+    manifest | I=$BELLE_APP_ICON yq -p=json -o=json '.icon = strenv(I)'
+  else
+    manifest
+  fi ;;
+name)
+  APP=${2:-} TEAM=${3:-}
+  case "$APP:$TEAM" in
+  :* | *: | *[!A-Za-z0-9:]*) echo "usage: belle-slack-project name <app id> <team id>" >&2; exit 2 ;;
+  esac
+  [ -r "$CREDENTIALS" ] || { echo "no login at $CREDENTIALS: log in first" >&2; exit 1; }
+  TOKEN=$(T=$TEAM yq -p=json -oy '.[strenv(T)].token // ""' "$CREDENTIALS")
+  [ -n "$TOKEN" ] || { echo "no login for team $TEAM in $CREDENTIALS" >&2; exit 1; }
+  # The token goes in a private request body, not in a header: a header is a
+  # command-line argument, which `ps` shows. /tmp is a tmpfs.
+  BODY=$(mktemp) && trap 'rm -f "$BODY"' EXIT
+  M=$(manifest -I0)
+  M=$M T=$TOKEN APP=$APP yq -n \
+    '"token=" + strenv(T) + "&app_id=" + strenv(APP) + "&manifest=" + (strenv(M) | @uri)' > "$BODY"
+  unset TOKEN
+  REPLY=$(wget -qO- --post-file="$BODY" "${SLACK_API_URL:-https://slack.com/api}/apps.manifest.update") \
+    || { echo "no answer from Slack" >&2; exit 1; }
+  if [ "$(printf %s "$REPLY" | yq -p=json -oy '.ok')" = true ]; then echo ok; exit 0; fi
+  ERROR=$(printf %s "$REPLY" | yq -p=json -oy '.error // "unreadable answer"')
+  case "$ERROR" in
+  token_expired | invalid_auth) echo "$ERROR: the login expired. Run ./slk auth list to refresh it, or log in again" >&2 ;;
+  *) echo "$ERROR" >&2 ;;
+  esac
+  exit 1 ;;
+tokens)
+  # The CLI sets both variables for a start hook when it manages the app, and
+  # the bot token for a deploy hook. Record what is set and name what is not.
+  [ -n "${SLACK_BOT_TOKEN:-}${SLACK_APP_TOKEN:-}" ] || { echo "neither SLACK_BOT_TOKEN nor SLACK_APP_TOKEN is set" >&2; exit 1; }
+  mkdir -p -m 700 "$P/out"
+  for PAIR in bot_token:SLACK_BOT_TOKEN app_token:SLACK_APP_TOKEN; do
+    FILE=${PAIR%%:*} VAR=${PAIR#*:}
+    eval "VALUE=\${$VAR:-}"
+    if [ -n "$VALUE" ]; then
+      printf %s "$VALUE" > "$P/out/$FILE"
+      echo "wrote $P/out/$FILE" >&2
+    else
+      echo "$VAR is not set: $P/out/$FILE not written" >&2
+    fi
+  done ;;
+setup)
+  shift
+  FORCE='' CHALLENGE=''
+  while [ $# -gt 0 ]; do
+    case "$1" in
+    --force) FORCE=--force ;;
+    --challenge) [ $# -ge 2 ] || fail "--challenge needs the code"; CHALLENGE=$2; shift ;;
+    *) echo "usage: setup [--challenge <code>] [--force]" >&2; exit 2 ;;
+    esac
+    shift
+  done
+  # init once: the CLI adds a project id to config.json.
+  [ -f "$P/.slack/hooks.json" ] || "$0" init
+  # The login ticket waits in /project, which persists, for the second run.
+  TICKET_FILE=$P/.slack/login-ticket
+  teams() { [ ! -s "$CREDENTIALS" ] || yq -p=json -oy 'keys | .[]' "$CREDENTIALS"; }
+  if [ -z "$(teams)" ]; then
+    if [ -z "$CHALLENGE" ]; then
+      OUT=$(slack login --no-prompt --no-color </dev/null 2>&1) || { printf '%s\n' "$OUT" >&2; fail "the login did not start"; }
+      TICKET=$(printf '%s\n' "$OUT" | sed -n 's|.*/slackauthticket \([^ ]*\).*|\1|p' | head -n 1)
+      [ -n "$TICKET" ] || { printf '%s\n' "$OUT" >&2; fail "no login ticket in the CLI output"; }
+      printf %s "$TICKET" > "$TICKET_FILE"
+      echo "Paste this line into a channel or a direct message of the workspace, then approve:"
+      echo "/slackauthticket $TICKET"
+      [ -t 0 ] || { echo "No terminal: run setup again with --challenge <code>, the code Slack shows." >&2; exit 1; }
+      printf 'Challenge code: '
+      read -r CHALLENGE
+    fi
+    [ -s "$TICKET_FILE" ] || fail "no login ticket: run setup without --challenge first"
+    TICKET=$(cat "$TICKET_FILE")
+    # A ticket is good for one attempt only.
+    rm -f "$TICKET_FILE"
+    slack login --no-prompt --ticket "$TICKET" --challenge "$CHALLENGE" </dev/null \
+      || fail "the login failed: run setup again for a new ticket"
+  fi
+  TEAM=$(teams)
+  [ -n "$TEAM" ] || fail "no login in $CREDENTIALS"
+  [ "$(printf '%s\n' "$TEAM" | wc -l)" -eq 1 ] || fail "several logins in $CREDENTIALS: keep one workspace per directory"
+  if [ -z "${BELLE_APP_ICON:-}" ]; then
+    cp /manifest/icon.png "$P/icon.png"
+    export BELLE_APP_ICON=icon.png
+  fi
+  # The install can exit with status 1 after a success, so `app list` decides.
+  OUT=$(slack app install -E local --team "$TEAM" $FORCE </dev/null 2>&1) || true
+  printf '%s\n' "$OUT"
+  case "$OUT" in
+  *app_manifest_update_error*)
+    fail "Slack refused the manifest. Read the differences above. Run setup --force to replace the app settings with the manifest" ;;
+  esac
+  APP=$(T=$TEAM yq -p=json -oy '[.. | select(tag == "!!map" and .team_id == strenv(T)) | .app_id][0] // ""' \
+    "$P/.slack/apps.dev.json" 2>/dev/null) || APP=
+  [ -n "$APP" ] || fail "the install made no app. Read the CLI output above"
+  OUT=$(slack app list --team "$TEAM" --no-color </dev/null 2>&1) || true
+  case "$OUT" in
+  *"$APP"*Installed* | *Installed*"$APP"*) echo "app $APP installed" ;;
+  *) printf '%s\n' "$OUT" >&2; fail "app $APP is not installed" ;;
+  esac
+  # The start hook writes the two token files. Old files must not pass for new
+  # ones, and slack.env is the only file left at the end.
+  rm -f "$P/out/bot_token" "$P/out/app_token"
+  trap 'rm -f "$P/out/bot_token" "$P/out/app_token"' EXIT
+  slack run --team "$TEAM" </dev/null || fail "slack run failed"
+  [ -s "$P/out/bot_token" ] && [ -s "$P/out/app_token" ] || fail "slack run did not give both tokens"
+  # `slack run` installs the app again, which can add the suffix again.
+  "$0" name "$APP" "$TEAM" >/dev/null || fail "the app name is not set"
+  echo "app name set"
+  for CHECK in "SLACK_BOT_TOKEN bot_token auth.test" "SLACK_APP_TOKEN app_token apps.connections.open"; do
+    set -- $CHECK
+    VALUE=$(cat "$P/out/$2")
+    REPLY=$(wget -qO- --post-data= --header="Authorization: Bearer $VALUE" \
+      "${SLACK_API_URL:-https://slack.com/api}/$3") || fail "no answer from Slack for $3"
+    RESULT=$(printf %s "$REPLY" | yq -p=json -oy '.error // .ok' 2>/dev/null) || RESULT="unreadable answer"
+    [ "$RESULT" != true ] || RESULT=ok
+    echo "$1 $(printf %.5s "$VALUE")... length ${#VALUE}: $3 $RESULT"
+    [ "$RESULT" = ok ] || fail "$1 did not pass $3"
+  done
+  printf 'SLACK_BOT_TOKEN=%s\nSLACK_APP_TOKEN=%s\n' "$(cat "$P/out/bot_token")" "$(cat "$P/out/app_token")" > "$P/out/slack.env"
+  echo "wrote $P/out/slack.env" ;;
+*) echo "usage: belle-slack-project setup|init|manifest|tokens|name" >&2; exit 2 ;;
+esac
