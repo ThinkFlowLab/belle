@@ -5,10 +5,12 @@ ENV CARGO_TARGET_DIR=/cargo-target \
     SOURCE_DATE_EPOCH=0 \
     RUSTFLAGS="--remap-path-prefix=/usr/local/cargo/registry/src=/crates"
 WORKDIR /helper
+# Each architecture builds into its own target directory.
+ARG TARGETARCH
 COPY src/belle_agent/platforms/matrix/helper /helper
 COPY containers/copy-cargo-licenses.py /copy-cargo-licenses.py
 RUN --mount=type=cache,id=belle-cargo-registry,target=/usr/local/cargo/registry \
-    --mount=type=cache,id=belle-cargo-target,target=/cargo-target \
+    --mount=type=cache,id=belle-cargo-target-${TARGETARCH},target=/cargo-target \
     cargo test --release --locked \
     && cargo build --release --locked \
     && cp /cargo-target/release/belle-matrix-helper /belle-matrix-helper \
