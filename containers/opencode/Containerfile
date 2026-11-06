@@ -1,17 +1,22 @@
 ARG DEBIAN_TAG=bookworm-slim
 
-# linux-x64 requires AVX2. Update the checksum with the version or target.
+# linux-x64 requires AVX2. Update the checksums with the version or a target.
 ARG OPENCODE_VERSION=2.2.5
-ARG OPENCODE_TARGET=linux-x64
-ARG OPENCODE_SHA512=0641c07d3a8db20feaa61c8736b9c7f831a43b166c1a36a63693390efc2812fcfb6403cdc3c9846cc5c64c20ce007fbffb8d04a9e89ee8a359059650c0f0a368
+ARG OPENCODE_TARGET_AMD64=linux-x64
+ARG OPENCODE_SHA512_AMD64=0641c07d3a8db20feaa61c8736b9c7f831a43b166c1a36a63693390efc2812fcfb6403cdc3c9846cc5c64c20ce007fbffb8d04a9e89ee8a359059650c0f0a368
+ARG OPENCODE_TARGET_ARM64=linux-arm64
+ARG OPENCODE_SHA512_ARM64=3b8a8ecbf5916109a10a5301ff9a816a861fcda0cad7e3c945039f53cd22c728f9aee41b0b1ada1fe556d94c876fa4563a552fe357de73e8ac77ad8bbc2bb0b8
 ARG OPENCODE_LICENSE_SHA256=625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b
 
 FROM docker.io/library/debian:${DEBIAN_TAG} AS fetch
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
 ARG OPENCODE_VERSION
-ARG OPENCODE_TARGET
-ARG OPENCODE_SHA512
+ARG OPENCODE_TARGET_AMD64
+ARG OPENCODE_SHA512_AMD64
+ARG OPENCODE_TARGET_ARM64
+ARG OPENCODE_SHA512_ARM64
 ARG OPENCODE_LICENSE_SHA256
 
 # docker-clean empties the apt cache mount: set it aside, then restore it for images built FROM this one.
@@ -25,9 +30,14 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && mv /etc/apt/apt.conf.d/docker-clean.disabled /etc/apt/apt.conf.d/docker-clean
 
 RUN set -eu; \
-    url="https://registry.npmjs.org/@opencode/cli-${OPENCODE_TARGET}/-/cli-${OPENCODE_TARGET}-${OPENCODE_VERSION}.tgz"; \
+    case "${TARGETARCH:-amd64}" in \
+      amd64) target="$OPENCODE_TARGET_AMD64"; sum="$OPENCODE_SHA512_AMD64" ;; \
+      arm64) target="$OPENCODE_TARGET_ARM64"; sum="$OPENCODE_SHA512_ARM64" ;; \
+      *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac; \
+    url="https://registry.npmjs.org/@opencode/cli-${target}/-/cli-${target}-${OPENCODE_VERSION}.tgz"; \
     curl -fsSL -o /tmp/cli.tgz "$url"; \
-    echo "${OPENCODE_SHA512}  /tmp/cli.tgz" | sha512sum -c -; \
+    echo "${sum}  /tmp/cli.tgz" | sha512sum -c -; \
     tar -xzf /tmp/cli.tgz -C /tmp package/bin/opencode; \
     install -m 0755 /tmp/package/bin/opencode /opt/opencode; \
     curl -fsSL -o /opt/LICENSE "https://raw.githubusercontent.com/anomalyco/opencode/v${OPENCODE_VERSION}/LICENSE"; \

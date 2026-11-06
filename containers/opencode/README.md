@@ -68,8 +68,9 @@ podman build -f containers/opencode/Containerfile -t localhost/belle:opencode-lo
 podman build -f containers/launcher/Containerfile -t localhost/belle:launcher-local .
 ```
 
-The OpenCode build accepts `OPENCODE_VERSION`, `OPENCODE_TARGET`, and
-`OPENCODE_SHA512`; change the checksum with the version or target.
+The OpenCode build accepts `OPENCODE_VERSION`, and for each architecture
+`OPENCODE_TARGET_AMD64` with `OPENCODE_SHA512_AMD64`, and `OPENCODE_TARGET_ARM64`
+with `OPENCODE_SHA512_ARM64`. Change the checksums with the version or a target.
 
 Create three files with mode `0600`. Use literal values: Podman does not expand
 `${NAME}` inside `--env-file`.
