@@ -8,17 +8,11 @@ and with `docker compose`. `podman compose` needs a provider:
 `podman-compose` or `docker-compose`. JiuwenSwarm runs in one container and
 needs no compose file.
 
-> [!NOTE]
-> This repository publishes no images. [Build them from a clone](#build-from-a-clone)
-> and set `BELLE_REGISTRY=localhost` and `BELLE_VERSION=local`, or push them to
-> your own registry and name it below.
-
 In an empty directory, put the harness's `compose.yaml`, then write
 `model.env` and `belle.env` as the harness guide gives them, and a `.env`
-that names the images:
+that names the release, such as `v1.0.0`:
 
 ```dotenv
-BELLE_REGISTRY=<registry>/<namespace>
 BELLE_VERSION=v<version>
 ```
 
@@ -27,10 +21,10 @@ podman compose up -d
 podman compose logs -f belle
 ```
 
-Compose pulls `<registry>/<namespace>/belle:<role>-v<version>` for each
-container and builds nothing. Compose reads `.env` at each command, and
-stops with a message that names `BELLE_REGISTRY` or `BELLE_VERSION` when
-one is not set.
+Compose pulls `ghcr.io/thinkflowlab/belle:<role>-v<version>` for each
+container and builds nothing. Set `BELLE_REGISTRY` to pull from another
+registry and namespace. Compose reads `.env` at each command, and stops with
+a message that names `BELLE_VERSION` when it is not set.
 
 The file needs no pairing file: it sets the pairing values itself. Its two
 secrets default to trial values that this repository publishes, so anyone
@@ -91,10 +85,10 @@ gives a pairing file for both containers and a `model.env` for the harness. The
 `model.env` is the same for both harnesses. To change harness, change the
 pairing file and the harness container.
 
-Use one image repository with a role-prefixed tag:
+The published images share one repository, with a role-prefixed tag:
 
 ```text
-<registry>/<namespace>/belle:<role>-v<version>
+ghcr.io/thinkflowlab/belle:<role>-v<version>
 ```
 
 For a local build, use `localhost/belle:<role>-local`. Published images from one tested set share a version, such as `launcher-v1.0.0` and `opencode-v1.0.0`. Keep published tags immutable.

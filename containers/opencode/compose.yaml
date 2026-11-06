@@ -1,8 +1,9 @@
 # Belle + OpenCode in one command. In a directory with this file, model.env, belle.env and a .env
-# that sets BELLE_REGISTRY and BELLE_VERSION:
+# that sets BELLE_VERSION:
 #   podman compose up -d    (or: docker compose up -d)
-# Compose pulls the images. In a clone of the repository, `up -d --build` builds them instead, and
-# BELLE_REGISTRY=localhost with BELLE_VERSION=local names the tags of a local build. See README.md.
+# Compose pulls the images from ghcr.io/thinkflowlab, or from BELLE_REGISTRY when it is set. In a clone of the
+# repository, `up -d --build` builds them instead, and BELLE_REGISTRY=localhost with BELLE_VERSION=local names the
+# tags of a local build. See README.md.
 # belle.env holds the variables of the platform. On Matrix, the first start writes the recovery key to the
 # belle-data volume and stops: see docs/platforms/matrix.md. The belle-state volume holds the Matrix store.
 
@@ -21,7 +22,7 @@ x-pairing: &pairing
 
 services:
   belle-opencode:
-    image: ${BELLE_REGISTRY:?set BELLE_REGISTRY to the registry and namespace of the Belle images, or to localhost for a local build}/belle:opencode-${BELLE_VERSION:?set BELLE_VERSION to the version of the Belle images, such as v1.0.0, or to local for a local build}
+    image: ${BELLE_REGISTRY:-ghcr.io/thinkflowlab}/belle:opencode-${BELLE_VERSION:?set BELLE_VERSION to the version of the Belle images, such as v1.0.0, or to local for a local build}
     build:
       context: ../..
       dockerfile: containers/opencode/Containerfile
@@ -31,7 +32,7 @@ services:
       - opencode-home:/home/opencode
 
   belle:
-    image: ${BELLE_REGISTRY:?set BELLE_REGISTRY to the registry and namespace of the Belle images, or to localhost for a local build}/belle:launcher-${BELLE_VERSION:?set BELLE_VERSION to the version of the Belle images, such as v1.0.0, or to local for a local build}
+    image: ${BELLE_REGISTRY:-ghcr.io/thinkflowlab}/belle:launcher-${BELLE_VERSION:?set BELLE_VERSION to the version of the Belle images, such as v1.0.0, or to local for a local build}
     build:
       context: ../..
       dockerfile: containers/launcher/Containerfile

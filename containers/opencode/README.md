@@ -6,17 +6,11 @@
 `docker compose` takes the same commands as `podman compose`, which needs
 `podman-compose` or `docker-compose` installed.
 
-> [!NOTE]
-> This repository publishes no images. [Build them from a clone](#build-from-a-clone)
-> and set `BELLE_REGISTRY=localhost` and `BELLE_VERSION=local`, or push them to
-> your own registry and name it below.
-
 In an empty directory, put this `compose.yaml`, write `model.env` and
 `belle.env` as the steps below give them, and a `.env` that names the
-images:
+release, such as `v1.0.0`:
 
 ```dotenv
-BELLE_REGISTRY=<registry>/<namespace>
 BELLE_VERSION=v<version>
 ```
 
