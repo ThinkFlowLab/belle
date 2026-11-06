@@ -372,7 +372,7 @@ Check the app-level token with Slack's `apps.connections.open` API and the bot t
 cd ~/slk-belle-test
 podman run --rm --userns=keep-id:uid=10001,gid=10001 --user 10001:10001 \
   --read-only --cap-drop=ALL --security-opt=no-new-privileges \
-  -v "$PWD/project/out:/out:ro" docker.io/library/alpine:3.20 sh -c '
+  -v "$PWD/project/out:/out:ro" docker.io/library/alpine:3.24 sh -c '
   wget -qO- --post-data="" --header="Authorization: Bearer $(cat /out/app_token)" \
     https://slack.com/api/apps.connections.open
   echo

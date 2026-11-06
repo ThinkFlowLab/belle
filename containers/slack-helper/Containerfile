@@ -4,7 +4,7 @@
 # The CLI version and checksums are build arguments. The build fails when the
 # downloaded tarball does not match.
 
-FROM docker.io/library/alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc AS fetch
+FROM docker.io/library/alpine:3.24@sha256:3f4d6b32e26703c6082839234f43769d5046b3ac7c910033911d1e71d8cd630a AS fetch
 ARG TARGETARCH
 ARG SLACK_CLI_VERSION=4.9.0
 ARG SLACK_CLI_SHA256_AMD64=6fb005b3d49f02eacd281adcfccb446648dc784171d0e2b8e80bb648673d696a
@@ -23,11 +23,11 @@ RUN apk add --no-cache curl rsvg-convert \
  && tar -xzf /tmp/slack.tar.gz -C /out bin/slack LICENSE \
  && rsvg-convert -w 1024 -h 1024 -o /out/icon.png /tmp/belle-avatar.svg
 
-FROM docker.io/library/alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc
+FROM docker.io/library/alpine:3.24@sha256:3f4d6b32e26703c6082839234f43769d5046b3ac7c910033911d1e71d8cd630a
 LABEL org.opencontainers.image.title="belle-slack-helper" \
       org.opencontainers.image.description="Slack CLI on Alpine, for creating and installing the Slack app Belle" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.base.name="docker.io/library/alpine:3.20"
+      org.opencontainers.image.base.name="docker.io/library/alpine:3.24"
 RUN apk upgrade --no-cache \
  && apk add --no-cache git ca-certificates yq \
  && adduser -D -u 10001 -h /home/slack slack \
