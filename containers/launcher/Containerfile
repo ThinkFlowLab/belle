@@ -17,11 +17,14 @@ RUN --mount=type=cache,id=belle-cargo-registry,target=/usr/local/cargo/registry 
 FROM docker.io/library/python:3.11-slim
 ARG DEBIAN_FRONTEND=noninteractive
 
+# docker-clean empties the apt cache mount: set it aside, then restore it for images built FROM this one.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt update \
-    && apt install -y --no-install-recommends \
-        ca-certificates
+    mv /etc/apt/apt.conf.d/docker-clean /etc/apt/apt.conf.d/docker-clean.disabled \
+    && apt update \
+    && apt -o APT::Keep-Downloaded-Packages=true install -y --no-install-recommends \
+        ca-certificates \
+    && mv /etc/apt/apt.conf.d/docker-clean.disabled /etc/apt/apt.conf.d/docker-clean
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1

@@ -7,10 +7,13 @@ ARG TEST_EXTRAS=dev,slack,matrix,tui,discord,mcp,acp
 
 USER root
 # socat is the ACP relay of the relay checks.
+# docker-clean empties the apt cache mount: set it aside, then restore it for images built FROM this one.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt update \
-    && apt install -y --no-install-recommends socat
+    mv /etc/apt/apt.conf.d/docker-clean /etc/apt/apt.conf.d/docker-clean.disabled \
+    && apt update \
+    && apt -o APT::Keep-Downloaded-Packages=true install -y --no-install-recommends socat \
+    && mv /etc/apt/apt.conf.d/docker-clean.disabled /etc/apt/apt.conf.d/docker-clean
 # A directory the tests can write to: some libraries write logs into the working directory.
 COPY --chown=${TEST_USER}:${TEST_USER} pyproject.toml README.md LICENSE NOTICE /home/belle/belle-agent/
 COPY --chown=${TEST_USER}:${TEST_USER} src/belle_agent /home/belle/belle-agent/src/belle_agent

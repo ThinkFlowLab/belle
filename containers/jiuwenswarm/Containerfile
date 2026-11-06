@@ -7,11 +7,14 @@ ARG AGENT_CORE_REF=belle/20261013
 
 FROM ${PYTHON_IMAGE} AS git-source
 ARG DEBIAN_FRONTEND=noninteractive
+# docker-clean empties the apt cache mount: set it aside, then restore it for images built FROM this one.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt update \
-    && apt install -y --no-install-recommends \
-        ca-certificates git
+    mv /etc/apt/apt.conf.d/docker-clean /etc/apt/apt.conf.d/docker-clean.disabled \
+    && apt update \
+    && apt -o APT::Keep-Downloaded-Packages=true install -y --no-install-recommends \
+        ca-certificates git \
+    && mv /etc/apt/apt.conf.d/docker-clean.disabled /etc/apt/apt.conf.d/docker-clean
 
 FROM git-source AS jiuwenswarm-source
 ARG JIUWENSWARM_REPO
@@ -45,9 +48,11 @@ FROM git-source AS build
 ARG DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt update \
-    && apt install -y --no-install-recommends \
-        build-essential
+    mv /etc/apt/apt.conf.d/docker-clean /etc/apt/apt.conf.d/docker-clean.disabled \
+    && apt update \
+    && apt -o APT::Keep-Downloaded-Packages=true install -y --no-install-recommends \
+        build-essential \
+    && mv /etc/apt/apt.conf.d/docker-clean.disabled /etc/apt/apt.conf.d/docker-clean
 ENV VIRTUAL_ENV=/opt/venv PATH=/opt/venv/bin:$PATH
 RUN python -m venv /opt/venv
 COPY --from=jiuwenswarm-source /usr/local/src/jiuwenswarm/ /build/jiuwenswarm/
@@ -73,9 +78,11 @@ FROM ${PYTHON_IMAGE}
 ARG DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt update \
-    && apt install -y --no-install-recommends \
+    mv /etc/apt/apt.conf.d/docker-clean /etc/apt/apt.conf.d/docker-clean.disabled \
+    && apt update \
+    && apt -o APT::Keep-Downloaded-Packages=true install -y --no-install-recommends \
         ca-certificates git libgomp1 libpq5 \
+    && mv /etc/apt/apt.conf.d/docker-clean.disabled /etc/apt/apt.conf.d/docker-clean \
     && useradd --uid 1000 --create-home --shell /usr/sbin/nologin app
 COPY --from=build /opt/venv /opt/venv
 COPY --from=jiuwenswarm-source /usr/local/src/jiuwenswarm/LICENSE /usr/share/licenses/jiuwenswarm/LICENSE

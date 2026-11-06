@@ -17,10 +17,13 @@ FROM ${OPENCODE_IMAGE} AS opencode-image
 
 FROM ${LAUNCHER_IMAGE} AS relay
 USER root
+# docker-clean empties the apt cache mount: set it aside, then restore it for images built FROM this one.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt update \
-    && apt install -y --no-install-recommends socat \
+    mv /etc/apt/apt.conf.d/docker-clean /etc/apt/apt.conf.d/docker-clean.disabled \
+    && apt update \
+    && apt -o APT::Keep-Downloaded-Packages=true install -y --no-install-recommends socat \
+    && mv /etc/apt/apt.conf.d/docker-clean.disabled /etc/apt/apt.conf.d/docker-clean \
     && install -d -o belle -g belle /run/belle-acp /home/belle/work
 COPY containers/acp-trial/relay-entry.sh /usr/local/bin/belle-acp-relay-entry
 COPY containers/acp-relay/relay.sh /usr/local/bin/belle-acp-trial

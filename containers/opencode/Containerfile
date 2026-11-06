@@ -14,12 +14,15 @@ ARG OPENCODE_TARGET
 ARG OPENCODE_SHA512
 ARG OPENCODE_LICENSE_SHA256
 
+# docker-clean empties the apt cache mount: set it aside, then restore it for images built FROM this one.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt update \
-    && apt install -y --no-install-recommends \
+    mv /etc/apt/apt.conf.d/docker-clean /etc/apt/apt.conf.d/docker-clean.disabled \
+    && apt update \
+    && apt -o APT::Keep-Downloaded-Packages=true install -y --no-install-recommends \
         ca-certificates \
-        curl
+        curl \
+    && mv /etc/apt/apt.conf.d/docker-clean.disabled /etc/apt/apt.conf.d/docker-clean
 
 RUN set -eu; \
     url="https://registry.npmjs.org/@opencode/cli-${OPENCODE_TARGET}/-/cli-${OPENCODE_TARGET}-${OPENCODE_VERSION}.tgz"; \
@@ -36,10 +39,12 @@ ARG DEBIAN_FRONTEND=noninteractive
 # OpenCode reads Git metadata from its working directory.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt update \
-    && apt install -y --no-install-recommends \
+    mv /etc/apt/apt.conf.d/docker-clean /etc/apt/apt.conf.d/docker-clean.disabled \
+    && apt update \
+    && apt -o APT::Keep-Downloaded-Packages=true install -y --no-install-recommends \
         ca-certificates \
-        git
+        git \
+    && mv /etc/apt/apt.conf.d/docker-clean.disabled /etc/apt/apt.conf.d/docker-clean
 
 RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin opencode \
     && mkdir -p /workspace/.opencode/plugins \
