@@ -28,7 +28,8 @@ LABEL org.opencontainers.image.title="belle-slack-helper" \
       org.opencontainers.image.description="Slack CLI on Alpine, for creating and installing the Slack app Belle" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.base.name="docker.io/library/alpine:3.20"
-RUN apk add --no-cache git ca-certificates yq \
+RUN apk upgrade --no-cache \
+ && apk add --no-cache git ca-certificates yq \
  && adduser -D -u 10001 -h /home/slack slack \
  && install -d -o 10001 -g 10001 -m 0755 /project \
  && install -d -o 10001 -g 10001 -m 0700 /auth \

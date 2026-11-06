@@ -6,7 +6,8 @@ FROM docker.io/library/python:3.12-alpine@sha256:1b668429b3511ab407d8e0064889163
 LABEL org.opencontainers.image.title="belle-mattermost-helper" \
       org.opencontainers.image.description="Sets up the bot account, its token and the slash command of Belle on a Mattermost server" \
       org.opencontainers.image.base.name="docker.io/library/python:3.12-alpine"
-RUN adduser -D -u 10001 -h /home/belle belle \
+RUN apk upgrade --no-cache \
+ && adduser -D -u 10001 -h /home/belle belle \
  && install -d -o 10001 -g 10001 -m 0700 /out \
  && install -d -m 0755 /secrets
 COPY containers/mattermost-helper/belle-mattermost-setup /usr/local/bin/belle-mattermost-setup

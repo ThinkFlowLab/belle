@@ -1,4 +1,12 @@
 FROM docker.io/library/python:3.11-slim
+ARG DEBIAN_FRONTEND=noninteractive
+# docker-clean empties the apt cache mount: set it aside, then restore it for images built FROM this one.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    mv /etc/apt/apt.conf.d/docker-clean /etc/apt/apt.conf.d/docker-clean.disabled \
+    && apt update \
+    && apt -o APT::Keep-Downloaded-Packages=true upgrade -y \
+    && mv /etc/apt/apt.conf.d/docker-clean.disabled /etc/apt/apt.conf.d/docker-clean
 ARG PIP_DISABLE_PIP_VERSION_CHECK=1
 ARG PIP_ROOT_USER_ACTION=ignore
 WORKDIR /src
