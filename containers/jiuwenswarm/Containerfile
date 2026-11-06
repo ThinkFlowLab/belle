@@ -8,9 +8,9 @@ ARG AGENT_CORE_REF=belle/20261013
 FROM ${PYTHON_IMAGE} AS git-source
 ARG DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/apt/lists,sharing=locked \
-    apt -o Dir::State::lists=/var/apt/lists update \
-    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt update \
+    && apt install -y --no-install-recommends \
         ca-certificates git
 
 FROM git-source AS jiuwenswarm-source
@@ -44,9 +44,9 @@ RUN npm ci --no-audit --no-fund && npm run build
 FROM git-source AS build
 ARG DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/apt/lists,sharing=locked \
-    apt -o Dir::State::lists=/var/apt/lists update \
-    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt update \
+    && apt install -y --no-install-recommends \
         build-essential
 ENV VIRTUAL_ENV=/opt/venv PATH=/opt/venv/bin:$PATH
 RUN python -m venv /opt/venv
@@ -72,9 +72,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 FROM ${PYTHON_IMAGE}
 ARG DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/apt/lists,sharing=locked \
-    apt -o Dir::State::lists=/var/apt/lists update \
-    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt update \
+    && apt install -y --no-install-recommends \
         ca-certificates git libgomp1 libpq5 \
     && useradd --uid 1000 --create-home --shell /usr/sbin/nologin app
 COPY --from=build /opt/venv /opt/venv

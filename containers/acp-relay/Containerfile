@@ -10,9 +10,9 @@ FROM ${HARNESS_IMAGE}
 ARG HARNESS_USER
 USER root
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/apt/lists,sharing=locked \
-    apt -o Dir::State::lists=/var/apt/lists update \
-    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends socat \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt update \
+    && apt install -y --no-install-recommends socat \
     && install -d -o ${HARNESS_USER} -g ${HARNESS_USER} /run/belle-acp /work
 COPY containers/acp-trial/relay-entry.sh /usr/local/bin/belle-acp-relay-entry
 COPY containers/acp-relay/relay.sh /usr/local/bin/belle-acp-relay

@@ -18,9 +18,9 @@ FROM docker.io/library/python:3.11-slim
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/apt/lists,sharing=locked \
-    apt -o Dir::State::lists=/var/apt/lists update \
-    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt update \
+    && apt install -y --no-install-recommends \
         ca-certificates
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

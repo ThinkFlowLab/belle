@@ -15,9 +15,9 @@ ARG DOCKER_AGENT_SHA256_ARM64=a048a1b5da4d57b1e9669e72460e16153ea7185722b74a411e
 ARG DOCKER_AGENT_LICENSE_SHA256=58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd
 ARG FZF_LICENSE_SHA256=a296f423c0d30ce3581435e78e7e36c5fe73984a882d8720c72e713b4593588b
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/apt/lists,sharing=locked \
-    apt -o Dir::State::lists=/var/apt/lists update \
- && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends ca-certificates curl \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt update \
+ && apt install -y --no-install-recommends ca-certificates curl \
  && case "${TARGETARCH:-amd64}" in \
       amd64) sum="$DOCKER_AGENT_SHA256_AMD64" ;; \
       arm64) sum="$DOCKER_AGENT_SHA256_ARM64" ;; \
@@ -37,9 +37,9 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG AGENT_YAML=src/belle_agent/integrations/docker_agent/agent/belle.yaml
 # curl carries the relay hooks to Belle.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/apt/lists,sharing=locked \
-    apt -o Dir::State::lists=/var/apt/lists update \
- && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends ca-certificates curl \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt update \
+ && apt install -y --no-install-recommends ca-certificates curl \
  && useradd --uid 1000 --create-home --shell /usr/sbin/nologin belle \
  && install -d -o belle -g belle /data
 COPY --from=fetch /opt/docker-agent /usr/local/bin/docker-agent

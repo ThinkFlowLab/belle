@@ -15,9 +15,9 @@ ARG OPENCODE_SHA512
 ARG OPENCODE_LICENSE_SHA256
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/apt/lists,sharing=locked \
-    apt -o Dir::State::lists=/var/apt/lists update \
-    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt update \
+    && apt install -y --no-install-recommends \
         ca-certificates \
         curl
 
@@ -35,9 +35,9 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # OpenCode reads Git metadata from its working directory.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/apt/lists,sharing=locked \
-    apt -o Dir::State::lists=/var/apt/lists update \
-    && apt -o Dir::State::lists=/var/apt/lists install -y --no-install-recommends \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt update \
+    && apt install -y --no-install-recommends \
         ca-certificates \
         git
 
