@@ -152,6 +152,10 @@ class _Turn:
     tools: dict[str, str] = field(default_factory=dict)
     #: The sessions of the subagents this turn started. Their hooks answer from this turn.
     subsessions: set[str] = field(default_factory=set)
+    #: A subagent's name to its open `transfer_task` calls, each with the turn's own `transfer_task` call that
+    #: shows it, until the result of either. Docker Agent sends tool events with no session, and a delegation
+    #: cannot return to an agent of its chain, so the agent name tells a subagent's calls from the turn's.
+    delegations: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
     #: The tool call Docker Agent holds until a person answers. One waits at a time.
     question: Question | None = None
     error: str = ""
@@ -209,12 +213,22 @@ def _entry(config: Mapping[str, Any]) -> Mapping[str, Any]:
     return next((agent for agent in agents if agent.get("Name") == ENTRY_AGENT), agents[0] if agents else {})
 
 
+def _child(kind: str, runs: list[str], data: dict[str, Any], text: str = "") -> TurnEvent | None:
+    """A subagent's tool event, on the call that runs the subagent. With two runs of the agent at once, the
+    run is unknown, and the event is left out."""
+    if len(runs) != 1:
+        return None
+    return TurnEvent(kind, text=text, data={**data, "call_id": runs[0], "child": True})
+
+
 def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
     """Turn one event of a turn's stream into what the core reads, if it reads it."""
     session = event.get("session_id")
     if session and session != turn.session and event.get("type") not in ("token_usage", "tool_call_confirmation"):
         # A subagent's session reports its own text and end. What it costs, and what it asks a person, is the turn's.
         return None
+    opened = turn.delegations.get(str(event.get("agent_name") or ""))
+    runs = None if opened is None else list(dict.fromkeys(run for _, run in opened))
     match event.get("type"):
         case "stream_started":
             return TurnEvent(EVENT_ACCEPTED)
@@ -231,19 +245,36 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
             call = event.get("tool_call") or {}
             function = call.get("function") or {}
             name = str(function.get("name") or "")
-            name = turn.tools[str(call.get("id") or "")] = turn.belle_tools.get(name, name)
+            call_id = str(call.get("id") or "")
+            name = turn.tools[call_id] = turn.belle_tools.get(name, name)
             arguments = _arguments(function.get("arguments"))
-            data: dict[str, Any] = {"name": name, "call_id": str(call.get("id") or ""), "arguments": arguments}
+            data: dict[str, Any] = {"name": name, "arguments": arguments}
             if name == TRANSFER_TOOL:
-                data[SUBAGENT] = str(arguments.get("agent") or "")
-            return TurnEvent(EVENT_TOOL_CALLED, data=data)
+                target = str(arguments.get("agent") or "")
+                # An empty name would match each event that names no agent, the turn's own too.
+                if target:
+                    # A subagent's own delegation runs under the run of that subagent.
+                    turn.delegations.setdefault(target, []).extend((call_id, run) for run in runs or [call_id])
+                if runs is None:
+                    data[SUBAGENT] = target
+            if runs is not None:
+                return _child(EVENT_TOOL_CALLED, runs, data)
+            return TurnEvent(EVENT_TOOL_CALLED, data={**data, "call_id": call_id})
         case "tool_call_response":
             call_id = str(event.get("tool_call_id") or "")
             name = str((event.get("tool_definition") or {}).get("name") or "")
-            data = {"name": turn.tools.get(call_id) or turn.belle_tools.get(name, name), "call_id": call_id}
+            data = {"name": turn.tools.get(call_id) or turn.belle_tools.get(name, name)}
             if (event.get("result") or {}).get("isError"):
                 data["failed"] = True
-            return TurnEvent(EVENT_TOOL_RESULT, text=str(event.get("response") or ""), data=data)
+            text = str(event.get("response") or "")
+            # The result ends the delegation it is, and the delegations that run under it.
+            for agent, calls in list(turn.delegations.items()):
+                calls[:] = [(call, run) for call, run in calls if call_id not in (call, run)]
+                if not calls:
+                    del turn.delegations[agent]
+            if runs is not None:
+                return _child(EVENT_TOOL_RESULT, runs, data, text)
+            return TurnEvent(EVENT_TOOL_RESULT, text=text, data={**data, "call_id": call_id})
         case "token_usage":
             usage = event.get("usage") or {}
             # `cost` is the session's. The cost of the model call that just ended is its last message's.

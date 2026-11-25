@@ -53,6 +53,7 @@ ROOT = {
 }
 HELPER = {**ROOT, "Name": "helper", "sub_agents": []}
 TRANSFER = "transfer_task"
+TOOL_EVENTS = (EVENT_TOOL_CALLED, EVENT_TOOL_RESULT)
 
 
 class Echo:
@@ -313,7 +314,7 @@ async def test_a_subagents_session_answers_its_hooks_from_the_turn_that_started_
     try:
         async for event in backend.run_turn(TurnRequest(conversation="c1", request_id="r1", text="hi")):
             events.append(event)
-            if event.kind == EVENT_TOOL_CALLED and event.data.get("call_id") == "call_2":
+            if event.kind == EVENT_TOOL_CALLED and event.data.get("child"):
                 for session in ("sub1", "elsewhere"):
                     answers.append(
                         await asyncio.to_thread(backend._hook, "tool_guard", {**guard, "session_id": session}, {})
@@ -326,9 +327,125 @@ async def test_a_subagents_session_answers_its_hooks_from_the_turn_that_started_
     assert [_decision(answer) for answer in (*answers, after)] == ["", "deny", "deny"]
     assert all(hooks.NO_TURN in str(answer) for answer in (answers[1], after))
     assert (events[-1].kind, events[-1].text) == (EVENT_SUCCEEDED, "done")
+    # The subagent's call shows on the call that runs the subagent, and the turn's own result ends that run.
+    tools = [(event.kind, event.text, event.data) for event in events if event.kind in TOOL_EVENTS]
+    transfer_data = {"name": TRANSFER, "call_id": "call_1", "arguments": {"agent": "helper"}, "subagent": "helper"}
+    assert tools == [
+        (EVENT_TOOL_CALLED, "", transfer_data),
+        (EVENT_TOOL_CALLED, "", {"name": "echo", "call_id": "call_1", "arguments": {}, "child": True}),
+        (EVENT_TOOL_RESULT, "echoed", {"name": "echo", "call_id": "call_1", "child": True}),
+        (EVENT_TOOL_RESULT, "helped", {"name": "transfer_task", "call_id": "call_1"}),
+    ]
     # A step is a model call of the turn's own session: not the subagent's, and not a change of agent.
     assert [event.kind for event in events].count(EVENT_STEP) == 2
     assert [event.data["cost"] for event in events if event.kind == EVENT_USAGE] == [0.25, 0.75]
+
+
+def _tool(by: str, call_id: str, name: str, **arguments: str) -> dict:
+    call = {"id": call_id, "type": "function", "function": {"name": name, "arguments": json.dumps(arguments)}}
+    return {"type": "tool_call", "agent_name": by, "tool_call": call, "tool_definition": {"name": name}}
+
+
+def _result(by: str, call_id: str) -> dict:
+    return {"type": "tool_call_response", "agent_name": by, "tool_call_id": call_id, "response": call_id}
+
+
+async def test_a_subagents_tool_events_go_to_the_run_of_their_agent_and_are_left_out_where_two_runs_could_hold_them():
+    turn = [
+        *_started(),
+        # One batch of the turn's own calls runs at once: a delegation, and a call of the turn's agent.
+        _tool("root", "t1", "transfer_task", agent="helper"),
+        _tool("root", "own", "belle_echo"),
+        _tool("helper", "h1", "transfer_task", agent="deep"),
+        _tool("deep", "d1", "belle_echo"),
+        _result("deep", "d1"),
+        _result("helper", "h1"),
+        _result("root", "own"),
+        _result("root", "t1"),
+        # Two runs of one subagent at once: nothing tells which of them made a call.
+        _tool("root", "t2", "transfer_task", agent="helper"),
+        _tool("root", "t3", "transfer_task", agent="helper"),
+        _tool("helper", "h2", "belle_echo"),
+        _result("helper", "h2"),
+        _result("root", "t2"),
+        _result("root", "t3"),
+        _tool("root", "after", "belle_echo"),
+        {"type": "agent_info", "session_id": "s1", "agent_name": "root"},
+        STOPPED,
+    ]
+    backend = await _started_backend(FakeDockerAgent(turn))
+    try:
+        events = await _events(backend)
+    finally:
+        await backend.close()
+
+    shown = [
+        (event.kind, event.data["call_id"], event.data["name"], event.data.get("child", False))
+        for event in events
+        if event.kind in TOOL_EVENTS
+    ]
+    assert shown == [
+        (EVENT_TOOL_CALLED, "t1", "transfer_task", False),
+        (EVENT_TOOL_CALLED, "own", "echo", False),
+        (EVENT_TOOL_CALLED, "t1", "transfer_task", True),
+        (EVENT_TOOL_CALLED, "t1", "echo", True),
+        (EVENT_TOOL_RESULT, "t1", "echo", True),
+        (EVENT_TOOL_RESULT, "t1", "transfer_task", True),
+        (EVENT_TOOL_RESULT, "own", "echo", False),
+        (EVENT_TOOL_RESULT, "t1", "transfer_task", False),
+        (EVENT_TOOL_CALLED, "t2", "transfer_task", False),
+        (EVENT_TOOL_CALLED, "t3", "transfer_task", False),
+        (EVENT_TOOL_RESULT, "t2", "transfer_task", False),
+        (EVENT_TOOL_RESULT, "t3", "transfer_task", False),
+        (EVENT_TOOL_CALLED, "after", "echo", False),
+    ]
+
+
+async def test_a_nested_delegation_ends_with_its_result_and_a_delegation_with_no_agent_holds_no_events():
+    turn = [
+        *_started(),
+        # Docker Agent runs one batch at once. It sends each call's tool_call as that call starts.
+        _tool("root", "t1", "transfer_task", agent="helper"),
+        _tool("helper", "h1", "transfer_task", agent="deep"),
+        _result("helper", "h1"),
+        _tool("root", "t2", "transfer_task", agent="deep"),
+        _tool("deep", "d1", "belle_echo"),
+        _result("deep", "d1"),
+        _result("root", "t2"),
+        _result("root", "t1"),
+        # A delegation that names no agent. The tool events that name no agent stay the turn's.
+        _tool("root", "t3", "transfer_task"),
+        {**_tool("", "own", "belle_echo"), "agent_name": None},
+        _result("root", "t3"),
+        {**_result("", "own"), "agent_name": None},
+        {"type": "agent_info", "session_id": "s1", "agent_name": "root"},
+        STOPPED,
+    ]
+    backend = await _started_backend(FakeDockerAgent(turn))
+    try:
+        events = await _events(backend)
+    finally:
+        await backend.close()
+
+    shown = [
+        (event.kind, event.data["call_id"], event.data["name"], event.data.get("child", False))
+        for event in events
+        if event.kind in TOOL_EVENTS
+    ]
+    assert shown == [
+        (EVENT_TOOL_CALLED, "t1", "transfer_task", False),
+        (EVENT_TOOL_CALLED, "t1", "transfer_task", True),
+        (EVENT_TOOL_RESULT, "t1", "transfer_task", True),
+        (EVENT_TOOL_CALLED, "t2", "transfer_task", False),
+        (EVENT_TOOL_CALLED, "t2", "echo", True),
+        (EVENT_TOOL_RESULT, "t2", "echo", True),
+        (EVENT_TOOL_RESULT, "t2", "transfer_task", False),
+        (EVENT_TOOL_RESULT, "t1", "transfer_task", False),
+        (EVENT_TOOL_CALLED, "t3", "transfer_task", False),
+        (EVENT_TOOL_CALLED, "own", "echo", False),
+        (EVENT_TOOL_RESULT, "t3", "transfer_task", False),
+        (EVENT_TOOL_RESULT, "own", "echo", False),
+    ]
 
 
 @pytest.mark.parametrize(

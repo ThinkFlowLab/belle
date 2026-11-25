@@ -145,6 +145,13 @@ as `root`. Belle refuses to start when the entry agent, an expert or a subagent 
 needs. A subagent gets no system text of the turn: Docker Agent sends its prompt hook for the person's
 message only.
 
+Docker Agent 1.165.0 sends each tool event with no session, a subagent's events too. Belle uses the name of
+the agent that calls the tool to find the subagent's events, because a delegation cannot return to an agent
+of its chain. Belle shows a subagent's tool calls under the `transfer_task` call that started the subagent.
+When two runs of one subagent are active at the same time, Belle cannot find the run that made a call, so
+it does not show that call. When a subagent's call needs an approval, Belle asks in the conversation of the
+turn and sends the answer to the turn's session.
+
 Docker Agent compacts a session only when it knows the context window of the model. It finds the window in
 the models.dev catalogue. For a model that the catalogue does not list, such as a model on your own
 `API_BASE`, set `context_window` on the model, in tokens. Without it, the compaction fails with a warning.
