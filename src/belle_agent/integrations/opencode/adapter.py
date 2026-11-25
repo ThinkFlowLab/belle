@@ -1027,7 +1027,7 @@ class OpenCodeBackend:
         return self.capabilities().tool_name(name) if name in self._belle_tools else None
 
     async def _set_permissions(self, session: str, scope: TurnScope) -> None:
-        """Set the session's permission ruleset for this turn. An empty ruleset restricts nothing.
+        """Set the session's permission ruleset for this turn. An empty scope denies only the ``OUT_OF_TURN`` tools.
 
         ``deny`` denies the tool and drops it from the roster. ``ask`` makes OpenCode's permission
         engine raise a ``permission.asked`` a person decides, so no decision waits inside a tool call.

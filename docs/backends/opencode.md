@@ -92,16 +92,16 @@ backends:
       shell, execute, edit, read, grep, glob, webfetch, websearch, subagent, external_directory,
       opencode_session_rename, opencode_session_move, opencode_worktree_create, opencode_worktree_list,
       opencode_models, opencode_list_mcp_resources, opencode_read_mcp_resource, opencode_list_mcp_events,
-      automation_create, automation_list, automation_pause, automation_resume, automation_delete,
-      generate_image, generate_video,
+      automation_list, automation_pause, automation_delete, generate_image, generate_video,
     ]
 ```
 
 `deny_tools` lists OpenCode tool or permission names. Belle refuses a name
 that it does not know. The refusal names each such name and lists the names
-that Belle accepts. By default Belle denies none of them. A scope's
-`permissions.tools` that sets a level for one of these tools replaces the deny
-for its conversations.
+that Belle accepts. By default Belle denies none of them, except
+`automation_create` and `automation_resume`, which it always denies. A scope's
+`permissions.tools` that sets a level for one of the other tools replaces the
+deny for its conversations.
 
 The Code Mode tools, such as `opencode_worktree_create`, are not in the
 model's tool list. The model calls them inside `execute`. A deny on `execute`
@@ -137,9 +137,11 @@ The `automation_*` tools manage the automations of the OpenCode project.
 `automation_create` schedules a prompt, a shell command or a Code Mode script
 with no approval. `automation_resume` starts a paused automation again. An
 automation runs later, outside the Belle turn that asked for it, and no person
-can approve what it does then. Belle follows only the executions of its own
-turns. It does not follow an automation that an operator schedules on a Belle
-session through OpenCode. `generate_image` and `generate_video` exist only while
+can approve what it does then. So Belle denies these two tools in every
+session, whatever the scope and `deny_tools` say. The other automation tools
+run nothing later. Belle follows only the executions of its own turns. It does
+not follow an automation that an operator schedules on a Belle session
+through OpenCode. `generate_image` and `generate_video` exist only while
 OpenCode lists a model of type `image` or `video`.
 
 A tool that a scope denies is not in the model's tool list for that turn. On

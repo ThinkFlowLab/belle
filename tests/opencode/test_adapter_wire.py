@@ -47,7 +47,7 @@ from belle_agent.backend import (
 from belle_agent.config import BelleConfigError, load_config
 from belle_agent.host import host_from_config
 from belle_agent.integrations.opencode import OpenCodeBackend, OpenCodeError, adapter, wire
-from belle_agent.integrations.opencode.permissions import BUILTIN_ACTIONS, TOOL_LEVELS, permission_rules
+from belle_agent.integrations.opencode.permissions import BUILTIN_ACTIONS, OUT_OF_TURN, TOOL_LEVELS, permission_rules
 from belle_agent.integrations.opencode.pin import OPENCODE_VERSION
 from belle_agent.integrations.opencode.sessions import message_id, session_id
 from belle_agent.integrations.opencode.settings import create_backend
@@ -58,6 +58,9 @@ from belle_agent.tools.server import PATH
 
 KEY = "sk-the-provider-key"
 C1 = session_id("", "c1")
+# The rules that end every session ruleset.
+ALWAYS = [{"action": name, "resource": "*", "effect": "deny"} for name in sorted(OUT_OF_TURN)]
+DENIED_OUT_OF_TURN = {(name, "deny") for name in OUT_OF_TURN}
 
 
 IMAGES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
@@ -1542,6 +1545,7 @@ async def test_a_scope_becomes_the_sessions_permission_ruleset(opencode):
     assert {(rule["action"], rule["effect"]) for rule in opencode.permission_rules[C1]} == {
         ("belle_post_message", "ask"),
         ("shell", "deny"),
+        *DENIED_OUT_OF_TURN,
     }
 
 
@@ -1560,6 +1564,7 @@ async def test_each_unavailable_skill_is_denied_after_the_tool_levels(opencode):
         {"action": "skill", "resource": "*", "effect": "ask"},
         {"action": "skill", "resource": "slack-app-home", "effect": "deny"},
         {"action": "skill", "resource": "slack-daily-update", "effect": "deny"},
+        *ALWAYS,
     ]
 
 
@@ -1585,13 +1590,17 @@ async def test_available_skills_are_allowed_after_a_deny_of_every_skill(opencode
         {"action": "skill", "resource": "digest", "effect": "allow"},
         {"action": "skill", "resource": "notes", "effect": "allow"},
         {"action": "skill", "resource": "digest", "effect": "deny"},
+        *ALWAYS,
     ]
     assert opencode.permission_rules[session_id("", "c2")] == [
         {"action": "skill", "resource": "*", "effect": "ask"},
         {"action": "skill", "resource": "*", "effect": "deny"},
         {"action": "skill", "resource": "notes", "effect": "ask"},
+        *ALWAYS,
     ]
-    assert opencode.permission_rules[session_id("", "c3")] == [{"action": "skill", "resource": "*", "effect": "deny"}]
+    assert opencode.permission_rules[session_id("", "c3")] == [
+        {"action": "skill", "resource": "*", "effect": "deny"}, *ALWAYS,
+    ]
 
 
 async def test_a_scope_can_override_backend_default_denies(opencode):
@@ -1605,7 +1614,7 @@ async def test_a_scope_can_override_backend_default_denies(opencode):
     await _rest(stream)
     await backend.close()
 
-    assert opencode.permission_rules[C1] == [{"action": "shell", "resource": "*", "effect": "deny"}]
+    assert opencode.permission_rules[C1] == [{"action": "shell", "resource": "*", "effect": "deny"}, *ALWAYS]
 
 
 @pytest.mark.parametrize(
@@ -1632,8 +1641,18 @@ async def test_a_scope_can_override_backend_default_denies(opencode):
 def test_a_tool_level_is_written_on_the_action_that_gates_the_tool(levels, rules):
     written = permission_rules(levels, lambda name: f"belle_{name}" if name == "post_message" else None)
 
-    assert {(rule["action"], rule["effect"]) for rule in written} == rules
-    assert len(written) == len(rules) and all(rule["resource"] == "*" for rule in written)
+    assert {(rule["action"], rule["effect"]) for rule in written} == rules | DENIED_OUT_OF_TURN
+    assert len(written) == len(rules) + len(OUT_OF_TURN)
+    assert all(rule["resource"] == "*" for rule in written)
+
+
+@pytest.mark.parametrize("level", ["allow", "ask"])
+def test_the_tools_that_act_outside_the_turn_stay_denied_whatever_the_scope_says(level):
+    """An automation runs later, when no turn watches the session and no person can approve what it does."""
+    written = permission_rules({name: level for name in OUT_OF_TURN}, lambda name: None, frozenset())
+
+    # OpenCode applies the last rule that matches: the denies come last.
+    assert written[-len(OUT_OF_TURN):] == ALWAYS
 
 
 async def test_the_host_names_at_start_each_tool_level_this_backend_cannot_hold(opencode, tmp_path, caplog):
@@ -1665,12 +1684,12 @@ scopes:
     assert "permissions.tools.shel=deny" in warned[1] and "declares a tool of that name" in warned[1]
 
 
-async def test_a_silent_scope_writes_an_empty_ruleset_so_nothing_is_restricted(backend, opencode):
+async def test_a_silent_scope_restricts_only_the_tools_that_act_outside_the_turn(backend, opencode):
     stream = await _accepted(backend)
     opencode.emit("session.execution.succeeded")
     await _rest(stream)
 
-    assert opencode.permission_rules[C1] == []
+    assert opencode.permission_rules[C1] == ALWAYS
 
 
 async def test_recovery_distinguishes_unsubmitted_running_and_finished_requests(backend, opencode, monkeypatch):

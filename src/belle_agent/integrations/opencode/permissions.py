@@ -91,6 +91,12 @@ NEVER_ASKED: frozenset[str] = frozenset({
     "automation_delete",
 })
 
+#: Tools that every session denies, whatever its scope and ``deny_tools`` say. Each one makes OpenCode run a
+#: prompt, a shell command or a Code Mode action later, when no Belle turn asked for it and no person can approve
+#: it: ``automation_create`` schedules one, ``automation_resume`` starts a paused one again. The other automation
+#: tools run nothing later.
+OUT_OF_TURN: frozenset[str] = frozenset({"automation_create", "automation_resume"})
+
 #: What a scope may name of OpenCode's own, with the levels OpenCode applies to each.
 TOOL_LEVELS: Mapping[str, frozenset[str]] = {
     name: frozenset({LEVEL_DENY} if name in NEVER_ASKED else {LEVEL_ASK, LEVEL_DENY})
@@ -115,9 +121,10 @@ def permission_rules(
     at start.
 
     Two tools of one action take the stricter of their levels. A tool the
-    scope does not name gets no rule, so an empty scope restricts nothing.
+    scope does not name gets no rule, so an empty scope restricts only the
+    ``OUT_OF_TURN`` tools. Their denies come last and so hold over any rule.
 
-    The skill rules come last: OpenCode applies the last rule that matches.
+    The skill rules follow the tool levels: OpenCode applies the last rule that matches.
     A ``skills_available`` list, ``None`` for every skill, denies every skill
     on the ``skill`` action, then gives each listed skill the level of
     ``skill`` itself, or ``allow``. Then each name in ``skills_unavailable``
@@ -138,4 +145,5 @@ def permission_rules(
         listed = effects.get(skill, EFFECT_ALLOW)
         rules.append({"action": skill, "resource": "*", "effect": EFFECT_DENY})
         rules += [{"action": skill, "resource": name, "effect": listed} for name in sorted(skills_available)]
-    return rules + [{"action": skill, "resource": name, "effect": EFFECT_DENY} for name in sorted(skills_unavailable)]
+    rules += [{"action": skill, "resource": name, "effect": EFFECT_DENY} for name in sorted(skills_unavailable)]
+    return rules + [{"action": name, "resource": "*", "effect": EFFECT_DENY} for name in sorted(OUT_OF_TURN)]

@@ -14,7 +14,7 @@ from standin import call, said, tools
 
 from belle_agent.backend import Answer, Question
 from belle_agent.host import OUTCOME_INTERRUPTED, OUTCOME_POSTED_FINAL
-from belle_agent.integrations.opencode.permissions import BUILTIN_ACTIONS
+from belle_agent.integrations.opencode.permissions import BUILTIN_ACTIONS, OUT_OF_TURN
 from belle_agent.integrations.opencode.sessions import session_id
 from belle_agent.platforms.base import QuestionRefused
 
@@ -180,12 +180,12 @@ async def test_a_denied_built_in_tool_is_not_offered_and_is_refused_by_name(buil
     assert direct - {"generate_image", "generate_video"} <= control
     assert (control - offered(requests[0])) & direct == governed & direct & control
     # The catalog lists a Code Mode tool only while its budget lasts, and a deny moves that budget. `search`
-    # inside `execute` finds every one: each is a tool of the pin.
+    # inside `execute` finds every one: each is a tool of the pin, but for those the adapter always denies.
     if governed & set(CODE_MODE):
         denied, kept = [await _search(world, model, f"{mark} {chat}", chat) for chat in ("C1", "C2")]
         for tool in governed & set(CODE_MODE):
             assert f"tools.{path(tool)}" not in denied, denied
-            assert f"tools.{path(tool)}" in kept, kept
+            assert (f"tools.{path(tool)}" in kept) is (tool not in OUT_OF_TURN), kept
     # Refused when the model calls it by name all the same: by the session ruleset, and behind the
     # plugin by the tool host before that. Inside `execute`, a Code Mode tool that is not offered is unknown.
     refusal = said(requests[-1], "tool")[-1]
