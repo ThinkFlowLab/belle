@@ -751,7 +751,9 @@ async def test_a_turn_the_server_refuses_on_a_session_it_has_fails_and_keeps_the
 
 
 async def test_a_call_held_for_a_person_is_one_approval_and_the_answer_resumes_or_refuses_it():
-    call = {"id": "call_1", "type": "function", "function": {"name": "belle_echo", "arguments": '{"text": "T"}'}}
+    # The person approves what the question shows: all the arguments, however long.
+    arguments = json.dumps({"text": "T" * 5000})
+    call = {"id": "call_1", "type": "function", "function": {"name": "belle_echo", "arguments": arguments}}
 
     def held(agent: str) -> list[dict]:
         # Docker Agent 1.165 sends a confirmation with no session, the subagent's too.
@@ -777,7 +779,7 @@ async def test_a_call_held_for_a_person_is_one_approval_and_the_answer_resumes_o
         await backend.close()
 
     expected = Question(
-        id="call_1", text='Allow echo: {"text": "T"}', options=(APPROVE, REJECT), kind=APPROVAL, tool="echo"
+        id="call_1", text=f"Allow echo: {arguments}", options=(APPROVE, REJECT), kind=APPROVAL, tool="echo"
     )
     assert asked == [expected, expected]
     assert [(method, path, body) for method, path, body in fake.calls if path.endswith("/resume")] == [

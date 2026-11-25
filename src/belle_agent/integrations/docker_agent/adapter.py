@@ -291,7 +291,8 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
             function = call.get("function") or {}
             name = str(function.get("name") or "")
             tool = turn.belle_tools.get(name, name)
-            shown = json.dumps(_arguments(function.get("arguments")), ensure_ascii=False)[:200]
+            # A person approves the call as shown, so it shows all of its arguments.
+            shown = json.dumps(_arguments(function.get("arguments")), ensure_ascii=False)
             turn.question = Question(
                 id=str(call.get("id") or ""),
                 text=f"Allow {tool}: {shown}",
