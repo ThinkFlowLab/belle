@@ -233,6 +233,8 @@ By default, accepted requests get `acknowledgement_emoji`. `text` posts `acknowl
 
 With `enable_streaming: true`, Slack previews the reply about once per second. Choice questions use buttons in either mode. Free-form `ask_user` questions use text inputs in either mode. Submitting an answer resumes the turn. Invalid calendar dates, clock times, and Unix timestamps return a field error and leave the question open. Socket Mode needs no public Request URL.
 
+A Slack section holds at most 3,000 characters. Belle splits a longer question, such as an approval with long tool arguments, over several sections and repeats code fences in each part. A message holds at most 50 blocks. If the question needs more, Belle shows its first parts and then a notice before the buttons. The notice gives the size of the question text, the number of parts, and the number of parts on the message.
+
 Slack-created cron jobs default to `targets: slack`. Results return to the source channel or thread. Jobs without Slack context use `default_channel_id`. `post_as_root: true` posts at channel level.
 
 Input declarations for selects, checkboxes, and radio buttons accept at most

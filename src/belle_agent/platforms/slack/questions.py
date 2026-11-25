@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from belle_agent import click_notices
+from belle_agent.platforms.rendering import markdown_parts
 from belle_agent.platforms.slack import inputs
 from belle_agent.platforms.slack.text import clamp, normalize_slack_mrkdwn
 
@@ -251,6 +252,10 @@ class QuestionPresenter:
             )
         if blocks is None:
             return None
+        if len(blocks) > MAX_QUESTION_BLOCKS:
+            blocks = self._fit_prompt(blocks, question, request_id)
+            if blocks is None:
+                return None
         if dropped:
             if len(blocks) < MAX_QUESTION_BLOCKS:
                 blocks.append(self.dropped_questions_block(dropped))
@@ -358,14 +363,6 @@ class QuestionPresenter:
                 "elements": [self._button(label, encoded, f"{self.action_id_prefix}submit", style="primary")],
             }
         )
-        if len(blocks) > MAX_QUESTION_BLOCKS:
-            self.logger.warning(
-                "Slack question renders %d blocks, over the %d a message holds: request_id=%s",
-                len(blocks),
-                MAX_QUESTION_BLOCKS,
-                request_id,
-            )
-            return None
         return blocks
 
     @staticmethod
@@ -383,17 +380,53 @@ class QuestionPresenter:
     @classmethod
     def _prompt_blocks(cls, question: Mapping[str, Any]) -> list[dict[str, Any]]:
         blocks: list[dict[str, Any]] = []
+        header = str(question.get("header") or "").strip()
+        if question.get("header_block") and header:
+            blocks.append(inputs.header_block(header))
+        blocks.extend(
+            {"type": "section", "text": {"type": "mrkdwn", "text": part}} for part in cls._prompt_parts(question)
+        )
+        return blocks
+
+    @classmethod
+    def _prompt_body(cls, question: Mapping[str, Any]) -> str:
         if question.get("header_block"):
-            header = str(question.get("header") or "").strip()
-            if header:
-                blocks.append(inputs.header_block(header))
             body = normalize_slack_mrkdwn(str(question.get("question") or "").strip())
         else:
             body = cls._section_text(question)
-        blocks.append(
-            {"type": "section", "text": {"type": "mrkdwn", "text": clamp(body or "…", MAX_SECTION_TEXT_LENGTH)}}
+        return body or "…"
+
+    @classmethod
+    def _prompt_parts(cls, question: Mapping[str, Any]) -> list[str]:
+        """Split the prompt over sections, as Slack holds at most 3000 characters in one."""
+        body = cls._prompt_body(question)
+        return [body] if len(body) <= MAX_SECTION_TEXT_LENGTH else markdown_parts(body, MAX_SECTION_TEXT_LENGTH, len)
+
+    def _fit_prompt(
+        self, blocks: list[dict[str, Any]], question: Mapping[str, Any], request_id: str
+    ) -> list[dict[str, Any]] | None:
+        """Drop the prompt's last sections to fit Slack's block limit, and say so before the controls."""
+        parts = self._prompt_parts(question)
+        start = len(self._prompt_blocks(question)) - len(parts)
+        kept = len(parts) - (len(blocks) - MAX_QUESTION_BLOCKS) - 1
+        if kept < 1:
+            self.logger.warning(
+                "Slack question renders %d blocks, over the %d a message holds: request_id=%s",
+                len(blocks), MAX_QUESTION_BLOCKS, request_id,
+            )
+            return None
+        size = len(self._prompt_body(question))
+        notice = (
+            f"*Not all of this question is shown.* Slack holds at most {MAX_QUESTION_BLOCKS} blocks in one message. "
+            f"The question text has {size} characters in {len(parts)} parts, "
+            f"and this message shows only the first {kept} parts."
         )
-        return blocks
+        self.logger.warning(
+            "Slack question text has %d characters in %d parts and the message shows %d parts: request_id=%s",
+            size, len(parts), kept, request_id,
+        )
+        cut = {"type": "section", "text": {"type": "mrkdwn", "text": notice}}
+        return [*blocks[: start + kept], cut, *blocks[start + len(parts) :]]
 
     @staticmethod
     def dropped_questions_block(dropped: list[str]) -> dict[str, Any]:
@@ -428,4 +461,4 @@ class QuestionPresenter:
         body = normalize_slack_mrkdwn(raw_body)
         if header:
             body = f"*{normalize_slack_mrkdwn(header)}*\n{body}".strip()
-        return clamp(body or "…", MAX_SECTION_TEXT_LENGTH)
+        return body
