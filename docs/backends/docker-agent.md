@@ -73,7 +73,7 @@ the server gives them to the model from its queue.
 A stop closes the turn's stream, which stops the turn in the server. So does the end of the Belle process,
 also when a signal kills it. This is a limit of Docker Agent: the server runs a turn in the context of the
 HTTP request that streams it, and ends the turn when that request closes. See `RunSession` in
-`pkg/server/server.go` and `pkg/server/session_manager.go` of Docker Agent 1.152.0. So the next Belle process
+`pkg/server/server.go` and `pkg/server/session_manager.go` of Docker Agent 1.165.0. So the next Belle process
 delivers no answer for a turn that ran when Belle stopped. It posts a notice that the answer is lost, and
 marks the message as failed. See [A running turn](../platforms/README.md#a-running-turn). A turn whose stream
 breaks, for example when the server restarts, fails once with a reply that says so. The next turn of the

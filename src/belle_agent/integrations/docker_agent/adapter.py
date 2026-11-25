@@ -218,8 +218,9 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
     match event.get("type"):
         case "stream_started":
             return TurnEvent(EVENT_ACCEPTED)
-        case "agent_info":
-            # Sent before each model call of the turn: the text written so far was no answer.
+        case "agent_info" if session:
+            # Sent with its session before each model call: the text written so far was no answer. Without a
+            # session, it reports a change of agent or model, which asks the model nothing.
             turn.text.clear()
             return TurnEvent(EVENT_STEP)
         case "agent_choice":
@@ -690,7 +691,7 @@ class DockerAgentBackend:
         """Whether the server no longer has the conversation's session, as after a reset of its database. A lost
         session leaves the session map.
 
-        Docker Agent 1.152 answers most calls on a missing session with 500, so the session is read back.
+        Docker Agent 1.165 answers most calls on a missing session with 500, so the session is read back.
         """
         if await self._exists(session):
             return False
@@ -778,7 +779,7 @@ class DockerAgentBackend:
         try:
             await self._wire.call("DELETE", f"/sessions/{session}")
         except WireError as exc:
-            # Docker Agent 1.152 answers the delete of a missing session with 500, so whether it is gone is read back.
+            # Docker Agent 1.165 answers the delete of a missing session with 500, so whether it is gone is read back.
             if exc.status != 404 and await self._exists(session):
                 raise
         del self._sessions[conversation]

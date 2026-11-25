@@ -52,6 +52,7 @@ ROOT = {
     "hooks": {name: [{}] for name in hooks.RELAYED | {hooks.USER_STEERING}},
 }
 HELPER = {**ROOT, "Name": "helper", "sub_agents": []}
+TRANSFER = "transfer_task"
 
 
 class Echo:
@@ -63,13 +64,15 @@ class Echo:
 
 
 def _started(session: str = "s1") -> list[dict]:
-    """The events Docker Agent sends before the first model call of a turn."""
+    """The events Docker Agent 1.165 sends from the start of a turn up to its first model call."""
     return [
         {"type": "session_title", "session_id": session, "title": "t"},
         {"type": "user_message", "session_id": session, "message": "hi"},
+        {"type": "team_info", "current_agent": "root"},
+        {"type": "toolset_info", "available_tools": 2},
         {"type": "stream_started", "session_id": session},
         {"type": "toolset_info", "available_tools": 2},
-        {"type": "agent_info", "agent_name": "root", "model": "default"},
+        {"type": "agent_info", "session_id": session, "agent_name": "root", "model": "default"},
     ]
 
 
@@ -142,7 +145,7 @@ class FakeDockerAgent:
         if path.startswith("/sessions/") and request.method == "DELETE":
             session = path.split("/")[2]
             if session not in self.live or self.delete_fails:
-                # As Docker Agent 1.152 answers a missing session: 500, not 404.
+                # As Docker Agent 1.165 answers a missing session: 500, not 404.
                 return httpx.Response(500, json={"message": "failed to delete session: session not found"})
             self.live.discard(session)
             return httpx.Response(200, json={"message": "session deleted"})
@@ -155,7 +158,7 @@ class FakeDockerAgent:
             return httpx.Response(201, json={"status": "added"})
         if path.endswith("/permissions") and request.method == "PATCH":
             if path.split("/")[2] not in self.live:
-                # As Docker Agent 1.152 answers a missing session: 500, not 404.
+                # As Docker Agent 1.165 answers a missing session: 500, not 404.
                 return httpx.Response(500, json={"message": "failed to update session permissions: session not found"})
             return httpx.Response(200, json={"message": "session permissions updated"})
         if path.endswith("/status"):
@@ -252,7 +255,7 @@ async def test_a_call_of_a_belle_tool_is_named_as_the_core_names_it():
             "response": "echo saw T",
             "result": {"output": "echo saw T"},
         },
-        {"type": "agent_info", "agent_name": "root"},
+        {"type": "agent_info", "session_id": "s1", "agent_name": "root"},
         {"type": "agent_choice", "session_id": "s1", "content": "done"},
         _usage(0.2),
         STOPPED,
@@ -281,13 +284,24 @@ async def test_a_subagents_session_answers_its_hooks_from_the_turn_that_started_
     echo = {"id": "call_2", "type": "function", "function": {"name": "belle_echo", "arguments": "{}"}}
     turn = [
         *_started(),
-        {"type": "tool_call", "tool_call": transfer, "tool_definition": {"name": "transfer_task"}},
-        {"type": "stream_started", "session_id": "sub1"},
+        {"type": "tool_call", "agent_name": "root", "tool_call": transfer, "tool_definition": {"name": TRANSFER}},
+        # As Docker Agent 1.165 streams a delegation: unscoped when the agent changes, scoped for each model call,
+        # and tool events with no session, named by their agent only.
+        {"type": "agent_switching", "switching": True, "from_agent": "root", "to_agent": "helper"},
         {"type": "agent_info", "agent_name": "helper"},
-        {"type": "agent_choice", "session_id": "sub1", "content": "the helper's own text"},
+        {"type": "stream_started", "session_id": "sub1"},
+        {"type": "agent_info", "session_id": "sub1", "agent_name": "helper"},
         {**_usage(0.25), "session_id": "sub1"},
-        {"type": "tool_call", "tool_call": echo, "tool_definition": {"name": "belle_echo"}},
+        {"type": "tool_call", "agent_name": "helper", "tool_call": echo, "tool_definition": {"name": "belle_echo"}},
+        {"type": "tool_call_response", "agent_name": "helper", "tool_call_id": "call_2", "response": "echoed"},
+        {"type": "agent_info", "session_id": "sub1", "agent_name": "helper"},
+        {"type": "agent_choice", "session_id": "sub1", "content": "the helper's own text"},
+        {"type": "stream_stopped", "session_id": "sub1", "reason": "normal"},
+        {"type": "sub_session_completed", "agent_name": "root", "parent_session_id": "s1", "sub_session": {}},
+        {"type": "agent_switching", "switching": False, "from_agent": "helper", "to_agent": "root"},
         {"type": "agent_info", "agent_name": "root"},
+        {"type": "tool_call_response", "agent_name": "root", "tool_call_id": "call_1", "response": "helped"},
+        {"type": "agent_info", "session_id": "s1", "agent_name": "root"},
         {"type": "agent_choice", "session_id": "s1", "content": "done"},
         _usage(0.5),
         STOPPED,
@@ -299,7 +313,7 @@ async def test_a_subagents_session_answers_its_hooks_from_the_turn_that_started_
     try:
         async for event in backend.run_turn(TurnRequest(conversation="c1", request_id="r1", text="hi")):
             events.append(event)
-            if event.data.get("call_id") == "call_2":
+            if event.kind == EVENT_TOOL_CALLED and event.data.get("call_id") == "call_2":
                 for session in ("sub1", "elsewhere"):
                     answers.append(
                         await asyncio.to_thread(backend._hook, "tool_guard", {**guard, "session_id": session}, {})
@@ -312,6 +326,8 @@ async def test_a_subagents_session_answers_its_hooks_from_the_turn_that_started_
     assert [_decision(answer) for answer in (*answers, after)] == ["", "deny", "deny"]
     assert all(hooks.NO_TURN in str(answer) for answer in (answers[1], after))
     assert (events[-1].kind, events[-1].text) == (EVENT_SUCCEEDED, "done")
+    # A step is a model call of the turn's own session: not the subagent's, and not a change of agent.
+    assert [event.kind for event in events].count(EVENT_STEP) == 2
     assert [event.data["cost"] for event in events if event.kind == EVENT_USAGE] == [0.25, 0.75]
 
 
@@ -349,7 +365,7 @@ async def test_a_subagents_session_answers_its_hooks_from_the_turn_that_started_
         ([*_started(), {"type": "agent_choice", "session_id": "s1", "content": "cut"}], adapter.STREAM_LOST),
         # The stream breaks while a call waits for a person: the call never runs, and the turn fails as lost.
         (
-            [*_started(), {"type": "tool_call_confirmation", "session_id": "s1", "tool_call": {"id": "call_1"}}],
+            [*_started(), {"type": "tool_call_confirmation", "agent_name": "root", "tool_call": {"id": "call_1"}}],
             adapter.STREAM_LOST,
         ),
     ],
@@ -620,12 +636,13 @@ async def test_a_turn_the_server_refuses_on_a_session_it_has_fails_and_keeps_the
 async def test_a_call_held_for_a_person_is_one_approval_and_the_answer_resumes_or_refuses_it():
     call = {"id": "call_1", "type": "function", "function": {"name": "belle_echo", "arguments": '{"text": "T"}'}}
 
-    def held(session: str) -> list[dict]:
-        confirmation = {"type": "tool_call_confirmation", "session_id": session, "tool_call": call}
+    def held(agent: str) -> list[dict]:
+        # Docker Agent 1.165 sends a confirmation with no session, the subagent's too.
+        confirmation = {"type": "tool_call_confirmation", "agent_name": agent, "tool_call": call}
         return [*_started(), confirmation, {"type": "agent_choice", "session_id": "s1", "content": "done"}, STOPPED]
 
-    # The second turn's call is a subagent's: its session asks, and the turn's session resumes.
-    fake = FakeDockerAgent(held("s1"), held("s9"))
+    # The second turn's call is a subagent's: it asks in the turn, and the turn's session resumes.
+    fake = FakeDockerAgent(held("root"), held("helper"))
     backend = await _started_backend(fake)
     asked = []
     try:
