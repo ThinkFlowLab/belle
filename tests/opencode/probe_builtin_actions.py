@@ -16,7 +16,8 @@ itself, so the adapter's own translation takes no part. Each line of output
 is one JSON record.
 
 The roster holds the tools of a provider request and the Code Mode tools
-that its catalog lists, each by the name OpenCode gives it:
+that its catalog lists, each by the name OpenCode gives it. The catalog lists
+a Code Mode tool only while its budget lasts, so a tool can run unlisted:
 ``opencode.worktree_create`` is ``opencode_worktree_create``. The model calls a
 Code Mode tool through ``execute``.
 
@@ -59,6 +60,9 @@ CALLS = {
     "question": {"questions": [{"question": "a?", "header": "a", "options": [{"label": "y", "description": "y"}]}]},
     # Offered only under `experimental.todo`, which the probe's OpenCode needs in its configuration.
     "todowrite": {"todos": [{"content": "a probe", "status": "pending"}]},
+    # Offered only while the server lists a model of type `image` or `video`.
+    "generate_image": {"prompt": "a probe"},
+    "generate_video": {"prompt": "a probe"},
 }
 # Code Mode tools, by the name OpenCode gives each, and the arguments of a call through `execute`.
 CODE_MODE = {
@@ -70,16 +74,30 @@ CODE_MODE = {
     "opencode_models": {"query": "probe"},
     "opencode_list_mcp_resources": {},
     "opencode_read_mcp_resource": {"server": "none", "uri": "probe://none"},
+    "opencode_list_mcp_events": {"server": "probe"},
+    "automation_create": {
+        "name": "probe", "trigger": {"type": "at", "at": "in 1 hour"}, "action": {"type": "prompt", "prompt": "probe"},
+    },
+    "automation_list": {},
+    "automation_pause": {"id": "aut_probe"},
+    "automation_resume": {"id": "aut_probe"},
+    "automation_delete": {"id": "aut_probe"},
 }
+# The Code Mode path of each tool whose name is not its namespace, an underscore and the rest.
+PATHS = {"opencode_session_rename": "opencode.session.rename", "opencode_session_move": "opencode.session.move"}
 CATALOG_ENTRY = re.compile(r"^\s*- tools\.([\w.]+)\(", re.MULTILINE)
 # Actions the permission engine knows that are no tool's name.
 OTHER_ACTIONS = ("external_directory",)
 
 
+def path(name: str) -> str:
+    """The Code Mode path of the tool ``name``: ``opencode.worktree_create`` for ``opencode_worktree_create``."""
+    return PATHS.get(name) or name.replace("_", ".", 1)
+
+
 def code(name: str) -> str:
     """The `execute` code that calls the Code Mode tool ``name``."""
-    namespace, tool = name.split("_", 1)
-    return f"return await tools.{namespace}.{tool}({json.dumps(CODE_MODE[name])})"
+    return f"return await tools.{path(name)}({json.dumps(CODE_MODE[name])})"
 
 
 def directive(name: str) -> str:

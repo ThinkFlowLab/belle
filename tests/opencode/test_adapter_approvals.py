@@ -9,7 +9,7 @@ import secrets
 
 import pytest
 from drive import Client
-from probe_builtin_actions import CALLS, CODE_MODE, directive, offered
+from probe_builtin_actions import CALLS, CODE_MODE, directive, offered, path
 from standin import call, said, tools
 
 from belle_agent.backend import Answer, Question
@@ -140,6 +140,16 @@ scopes:
     assert len(model.requests(_session(model, text))) == 1
 
 
+# The `execute` code that lists the path of every Code Mode tool the session has.
+SEARCH = "return (await search({ limit: 1000 })).items.map((item) => item.path)"
+
+async def _search(world, model, mark: str, conversation: str) -> str:
+    """What `search` lists of the Code Mode tools of ``conversation``."""
+    text = f"search {mark} " + call("execute", code=SEARCH)
+    await world.send(world.message(text, conversation=conversation))
+    return said(model.requests(_session(model, text))[-1], "tool")[-1]
+
+
 ONLY = """
 scopes:
   - match: {{channel: loopback}}
@@ -164,14 +174,23 @@ async def test_a_denied_built_in_tool_is_not_offered_and_is_refused_by_name(buil
 
     requests = model.requests(_session(model, called))
     control = offered(model.requests(_session(model, f"roster {mark} SAY=x"))[0])
-    # Absent from what the model is offered, beside a conversation the scope does not name.
-    assert set(BUILTIN_ACTIONS) <= control
-    assert control - offered(requests[0]) == governed
+    # Absent from what the model is offered, beside a conversation the scope does not name. The test server
+    # lists no image or video model.
+    direct = set(BUILTIN_ACTIONS) - set(CODE_MODE)
+    assert direct - {"generate_image", "generate_video"} <= control
+    assert (control - offered(requests[0])) & direct == governed & direct & control
+    # The catalog lists a Code Mode tool only while its budget lasts, and a deny moves that budget. `search`
+    # inside `execute` finds every one: each is a tool of the pin.
+    if governed & set(CODE_MODE):
+        denied, kept = [await _search(world, model, f"{mark} {chat}", chat) for chat in ("C1", "C2")]
+        for tool in governed & set(CODE_MODE):
+            assert f"tools.{path(tool)}" not in denied, denied
+            assert f"tools.{path(tool)}" in kept, kept
     # Refused when the model calls it by name all the same: by the session ruleset, and behind the
     # plugin by the tool host before that. Inside `execute`, a Code Mode tool that is not offered is unknown.
     refusal = said(requests[-1], "tool")[-1]
     if name in CODE_MODE:
-        assert f"Unknown tool '{name.replace('_', '.', 1)}'" in refusal, refusal
+        assert f"Unknown tool '{path(name)}'" in refusal, refusal
     else:
         assert f'No tool named \\"{name}\\" is currently available' in refusal or f"{name} is denied in this conversation" in refusal
 

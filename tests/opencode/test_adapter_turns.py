@@ -165,7 +165,8 @@ def cutting(model):
             return [_chunk({"content": "I will read the folder."}), _chunk({"tool_calls": [read]}), _chunk({}, "length")]
         broken = re.match(r"BREAK=(\d+|odd|filter)$", users[0]) if users and not is_title(body) else None
         if broken:
-            done = sum(adapter.CONTINUE_BROKEN in text for text in users)
+            # OpenCode retries a broken response with the same request: the earlier requests count the attempts.
+            done = len(model.requests(session)) - 1
             if broken.group(1) == "filter":
                 return [_chunk({"content": "[0]"}), _chunk({}, "content_filter")]
             if broken.group(1) == "odd":
@@ -224,7 +225,7 @@ async def test_a_cut_response_that_called_a_tool_is_not_continued_and_its_text_i
 
 
 @pytest.mark.parametrize("prompt", ["BREAK=1", "BREAK=odd"])
-async def test_a_response_that_stops_after_it_starts_is_continued_into_one_answer(world, cutting, prompt):
+async def test_a_response_that_stops_after_it_starts_is_retried_and_the_retry_is_the_answer(world, cutting, prompt):
     backend = world.kit.backend
     turn = asyncio.create_task(_events(backend, _request(prompt)))
     # While OpenCode waits to retry the failed step, the step holds the retry and the text it wrote.
@@ -237,17 +238,19 @@ async def test_a_response_that_stops_after_it_starts_is_continued_into_one_answe
             await asyncio.sleep(0.05)
     ended = await turn
 
-    assert (ended[-1].kind, ended[-1].text) == (EVENT_SUCCEEDED, "[0][1]")
-    assert [event.data for event in ended if event.kind == EVENT_STEP] == [{}, {"continues": True}]
+    assert (ended[-1].kind, ended[-1].text) == (EVENT_SUCCEEDED, "[1]")
+    # The retry starts the answer again: it does not continue the failed text.
+    assert [event.data for event in ended if event.kind == EVENT_STEP] == [{}, {}]
     (failed,) = waiting
     assert failed["error"] and failed["retry"]["attempt"] and adapter._text(failed["content"]) == "[0]"
-    # The continuation request ends with OpenCode's prompt to go on, which the adapter's constant holds whole.
-    assert last_user(cutting.requests(_session(cutting, prompt))[-1])[0] == adapter.CONTINUE_BROKEN
-    # The failed step keeps its retry after the next step started, and the stored prompt follows it.
+    # The retry is the same request: the model does not see the failed text, and OpenCode adds no prompt.
+    first, retried = cutting.requests(_session(cutting, prompt))
+    assert retried["messages"] == first["messages"]
+    # The failed step keeps its retry after the next step started.
     stored = await _stored(backend, cutting, prompt)
     assert [message["id"] for message in stored if message.get("retry")] == [failed["id"]]
-    assert [message["text"] for message in stored if message["type"] == "synthetic"] == [adapter.CONTINUE_BROKEN]
-    assert adapter.stored(stored, "succeeded").text == "[0][1]"
+    assert [message for message in stored if message["type"] == "synthetic"] == []
+    assert adapter.stored(stored, "succeeded").text == "[1]"
 
 
 async def test_a_response_that_fails_after_it_starts_and_is_not_continued_fails_after_its_text(world, cutting):

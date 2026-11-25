@@ -138,8 +138,8 @@ class OpenCodeKit:
             name, arguments = turn.calls[done]
             return _call(self.backend.capabilities().tool_name(name), arguments)
         if turn.background and done == len(turn.calls):
-            # Work the turn does not wait for is a subagent that runs in the background.
-            return _call("subagent", {"agent": "general", "description": "work", "prompt": BACKGROUND, "background": True})
+            # Work the turn does not wait for is a subagent: OpenCode runs each one in the background.
+            return _call("subagent", {"agent": "general", "description": "work", "prompt": BACKGROUND})
         return [_chunk({"content": turn.final}), _chunk({}, "stop")]
 
 

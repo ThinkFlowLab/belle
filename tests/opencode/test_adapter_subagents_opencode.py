@@ -1,6 +1,6 @@
 """A turn whose subagents run in the background, on OpenCode itself with the stand-in model.
 
-The model starts each child with ``background``, so the call returns at once
+OpenCode runs each child in the background, so the call returns at once
 and the first execution of the session ends while the child runs. The child's
 answer is ``SAY=<word>``, which is how its report makes the stand-in answer
 ``<word>`` when OpenCode runs the session again for it.
@@ -8,12 +8,13 @@ answer is ``SAY=<word>``, which is how its report makes the stand-in answer
 
 import asyncio
 import os
+import time
 
 import pytest
 from conformance_kit import LoopbackKit, worlds
 from drive import Client
 from slack_kit import SlackKit
-from standin import call, said, tools
+from standin import call, last_user, said, tools
 
 from belle_agent.backend import EVENT_TEXT_DELTA, EVENT_TOOL_CALLED, EVENT_TOOL_RESULT, SUBAGENT
 from belle_agent.host import OUTCOME_INTERRUPTED, OUTCOME_POSTED_FINAL
@@ -27,7 +28,7 @@ DENY_SHELL = "scopes:\n  - match: {channel: loopback}\n    permissions: {tools: 
 def background(word: str, seconds: float) -> str:
     """The directive that starts a child in the background which answers ``SAY=<word>`` after ``seconds``."""
     prompt = f"WAIT={seconds} SAY=SAY={word}"
-    return call("subagent", agent="general", description=word, prompt=prompt, background=True)
+    return call("subagent", agent="general", description=word, prompt=prompt)
 
 
 @pytest.fixture(params=["loopback", "slack"])
@@ -99,7 +100,19 @@ async def test_two_background_subagents_of_different_durations_are_one_turn_and_
     assert all(text.startswith("Turn finished") and "2 subagents finished" in text for text in cards(world))
 
 
-async def test_a_stop_while_a_background_subagent_runs_stops_the_child_and_what_its_end_would_start(world, model):
+async def test_a_stop_while_a_background_subagent_runs_stops_the_child_and_what_its_end_would_start(
+    world, model, monkeypatch
+):
+    answer = model.script
+
+    def slow_report(body, session):
+        # The stand-in answers at once, and OpenCode answered the report in its execution's first milliseconds,
+        # before the interrupt reached it. A model takes longer.
+        if "<background-result" in last_user(body)[0]:
+            time.sleep(2)
+        return answer(body, session)
+
+    monkeypatch.setattr(model, "script", slow_report)
     message = world.direct("go " + background("never", 60))
     await world.platform.inject(message)
     await first_answer(world)
@@ -127,10 +140,9 @@ async def test_a_stop_while_a_background_subagent_runs_stops_the_child_and_what_
     assert [post.text for post in world.posts()][-1] == "the-next-turn"
 
 
-@pytest.mark.parametrize("form", ["blocking", "background"])
 @pytest.mark.parametrize(("rules", "allowed"), [pytest.param(DENY_SHELL, False, id="denied"), pytest.param("", True, id="no-rule")])
-async def test_a_subagent_is_held_to_the_tool_levels_of_the_session_that_started_it(build_world, model, form, rules, allowed):
-    """The measured answer: a child session inherits its parent's permission ruleset, in both forms of the call.
+async def test_a_subagent_is_held_to_the_tool_levels_of_the_session_that_started_it(build_world, model, rules, allowed):
+    """The measured answer: a child session inherits its parent's permission ruleset.
 
     The agents a child runs as, ``general`` and ``explore``, allow every tool in
     their own definition. The session's rules still apply: a tool the scope
@@ -139,9 +151,7 @@ async def test_a_subagent_is_held_to_the_tool_levels_of_the_session_that_started
     """
     world = await build_world(rules)
     child = f"child-{os.urandom(3).hex()} " + call("shell", command="echo ran-in-the-child", description="d")
-    arguments = {"agent": "general", "description": "d", "prompt": child, **({"background": True} if form == "background" else {})}
-
-    await world.send(world.direct("go " + call("subagent", **arguments)))
+    await world.send(world.direct("go " + call("subagent", agent="general", description="d", prompt=child)))
 
     requests = [entry["body"] for entry in model.log if any(child in user for user in said(entry["body"], "user"))]
     answered = "".join(said(requests[-1], "tool"))

@@ -2,7 +2,6 @@
 
 import asyncio
 import contextlib
-import itertools
 import logging
 import time
 import urllib.parse
@@ -100,7 +99,7 @@ MAX_SESSION_DEPTH = 4
 # OpenCode's built-in tool that runs a subagent in a child session, and the argument that names the subagent's type.
 SUBAGENT_TOOL = "subagent"
 SUBAGENT_TYPE_ARGUMENT = "agent"
-# The status of a `subagent` call that returned while its child runs on: the call was made with `background`.
+# The status of a `subagent` call that returned while its child runs on: OpenCode runs every child in the background.
 CHILD_RUNNING = "running"
 # The inbox item OpenCode makes of a child's report to the session that started it, and the state of a child that completed.
 CHILD_REPORT = "synthetic"
@@ -113,16 +112,11 @@ STEP_CALLED_TOOLS = "tool-calls"
 # without repeating itself. The text of the next step then joins the cut text with no separator, because a cut can
 # fall in the middle of a word. As in OpenCode, a call that the provider runs itself (``executed``) does not count.
 STEP_CUT = "length"
-# OpenCode continues a step whose response broke off after it began to answer, such as a stream that ended with no
-# finish. It fails the step and keeps its text. It schedules a retry of the failed step, and when the wait ends it
-# prompts the model with this text (``CONTINUE_AFTER_INCOMPLETE_STREAM``, ``packages/core/src/session/runner/llm.ts``).
-# The adapter then reads the failed step as a cut step. In stored messages the failed step keeps its ``retry``. So
-# does a failed step whose wait a shutdown ended, and OpenCode resumes that turn with a new step and no prompt. So
-# once a next step exists, only this prompt marks the continuation. Other messages, such as a model switch, can come
-# between the failed step and the prompt.
-CONTINUE_BROKEN = (
-    "The previous response was interrupted. Continue from where you left off without repeating completed content."
-)
+# OpenCode retries a step whose response broke off after it began to answer, such as a stream that ended with no
+# finish. It fails the step, keeps its text, and waits. Then it runs a new step, and the model does not see the text
+# of the failed step (``packages/core/src/session/runner/to-llm-message.ts``). So that text is no answer: the new
+# step starts the answer again, and does not continue the failed step's text. It continues the text of the cut
+# steps before the failed one, as the failed step did, because it sends the same request.
 #: How the final of a turn that failed after it wrote text tells of the failure, on a line of its own.
 RESPONSE_STOPPED = "The model's response stopped: {reason}."
 
@@ -192,12 +186,12 @@ class _Turn:
     #: Text parts of the step in progress.
     final: list[str] = field(default_factory=list)
     #: Whether the next step continues the text of the steps before it, which ``unfinished`` holds. Those steps were
-    #: cut at the output limit or broke off, and called no tool that the provider does not run itself.
+    #: cut at the output limit, and called no tool that the provider does not run itself.
     continuing: bool = False
     unfinished: str = ""
     #: Whether the step in progress called a tool that the provider does not run itself.
     step_called: bool = False
-    #: Whether the step in progress failed.
+    #: Whether the step in progress failed. The next step retries it.
     step_failed: bool = False
     #: The answers given so far, in order: the text of each step that called no tool. An execution gives one,
     #: and one more for each child's report that reaches it while it runs.
@@ -251,9 +245,10 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
     match event.get("type"):
         case "session.step.started":
             # One per request to the model: a request that is retried starts a step again. A request that
-            # continues a cut or broken text says so.
+            # continues a cut text says so. The retry of a failed step does not continue the failed step's text.
+            continues = turn.continuing and not turn.step_failed
             _step_started(turn)
-            return TurnEvent(EVENT_STEP, data={"continues": True} if turn.continuing else {})
+            return TurnEvent(EVENT_STEP, data={"continues": True} if continues else {})
         case "session.text.delta":
             # OpenCode replays nothing. Once events were missed the text of the reply has a hole, and the
             # deltas that follow would be shown as if they continued what came before. The final is whole.
@@ -261,13 +256,9 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
         case "session.text.ended":
             turn.final.append(data.get("text", ""))
         case "session.step.ended":
-            _answered(turn, data.get("finish"))
+            _step_ended(turn, data.get("finish"))
         case "session.step.failed":
-            turn.step_failed = True
-        case "session.retry.scheduled":
-            # A step retried from its start has not failed. A failed step is retried only to continue its text.
-            if turn.step_failed:
-                _answered(turn, STEP_CUT)
+            _step_ended(turn, failed=True)
         case "session.tool.input.started":
             # One of Belle's own tools is advertised as `belle_<name>`. The core and its scopes know it as `<name>`.
             name = data.get("name", "")
@@ -283,14 +274,10 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
             # Progress can name the child session before tool.success; routing is recorded in the pump too.
             _remember_child(turn, call_id, data.get("metadata"))
         case "session.tool.success":
-            child = _background_child(data.get("metadata")) if call_id in turn.subagents else ""
-            if child:
-                # The call returned and its subagent runs on. The call's result is the child's report.
-                turn.children[child] = call_id
-                return None
             if call_id in turn.subagents:
-                # A waiting subagent finished: stop routing its session onto this turn.
-                _forget_child(turn, call_id)
+                # The call returned and its subagent runs on. The call's result is the child's report.
+                _remember_child(turn, call_id, data.get("metadata"))
+                return None
             return TurnEvent(EVENT_TOOL_RESULT, text=_text(data.get("content")), data=_called(turn, call_id))
         case "session.tool.failed":
             # A call that OpenCode fails before it runs, such as one that the output limit cut, has no `called` event.
@@ -381,11 +368,8 @@ def _translate_child(event: Mapping[str, Any], turn: _Turn, attribution: str) ->
 
 def _remember_child(turn: _Turn, call_id: str, metadata: Any) -> None:
     """Map a child session onto its parent subagent call when the wire names the child."""
-    if call_id not in turn.subagents:
-        return
-    metadata = metadata or {}
-    child = str(metadata.get("sessionID") or "")
-    if child and metadata.get("status") == CHILD_RUNNING:
+    child = _background_child(metadata) if call_id in turn.subagents else ""
+    if child:
         turn.children[child] = call_id
 
 
@@ -407,6 +391,14 @@ def _called(turn: _Turn, call_id: str) -> dict[str, Any]:
 def _step_started(turn: _Turn) -> None:
     turn.final.clear()
     turn.step_called = turn.step_failed = False
+
+
+def _step_ended(turn: _Turn, finish: str | None = None, *, failed: bool = False) -> None:
+    """End the step in progress. A failed step's text stays the step in progress: a retry starts again, and an
+    execution that ends with the step fails after its text."""
+    turn.step_failed = failed
+    if not failed:
+        _answered(turn, finish)
 
 
 def _answered(turn: _Turn, finish: str | None = None) -> None:
@@ -439,28 +431,18 @@ def _replay(messages: Sequence[Mapping[str, Any]], turn: _Turn | None = None) ->
     turn.unfinished = ""
     turn.continuing = False
     _step_started(turn)
-    for index, message in enumerate(messages):
+    for message in messages:
         if message.get("type") != "assistant":
             continue
         _step_started(turn)
         content = message.get("content") or ()
         turn.final.append(_text(content))
         turn.step_called = any(part.get("type") == "tool" and not part.get("executed") for part in content)
-        turn.step_failed = bool(message.get("error"))
-        if turn.step_failed:
-            # OpenCode continues a failed step while it waits to retry it, and once it has prompted the model to go
-            # on. Its next step clears the text of a failed step that it does not continue.
-            following = list(itertools.takewhile(lambda later: later.get("type") != "assistant", messages[index + 1 :]))
-            waiting = message.get("retry") and index + len(following) + 1 == len(messages)
-            if waiting or any(_prompts_to_go_on(later) for later in following):
-                _answered(turn, STEP_CUT)
+        if message.get("error"):
+            _step_ended(turn, failed=True)
         elif message.get("finish"):
-            _answered(turn, message["finish"])
+            _step_ended(turn, message["finish"])
     return turn
-
-
-def _prompts_to_go_on(message: Mapping[str, Any]) -> bool:
-    return message.get("type") == "synthetic" and message.get("text") == CONTINUE_BROKEN
 
 
 def _written(turn: _Turn) -> list[str]:
@@ -528,7 +510,7 @@ def _unreported(messages: Sequence[Mapping[str, Any]]) -> dict[str, str]:
         for part in (message.get("content") or ()) if message.get("type") == "assistant" else ():
             state = part.get("state") or {}
             child = _background_child(state.get("metadata")) if part.get("name") == SUBAGENT_TOOL else ""
-            # A call that waits for its child reports it running too, until the call itself has ended.
+            # A call in progress names its child too, but can still fail: the child counts once the call returned.
             if child and state.get("status") == CHILD_COMPLETED:
                 children[child] = str(part.get("id") or "")
     return children
@@ -935,12 +917,8 @@ class OpenCodeBackend:
         elif kind == "session.tool.called" and turn.tools.get(call_id) == SUBAGENT_TOOL:
             arguments = data.get("input") or {}
             turn.subagents[call_id] = str(arguments.get(SUBAGENT_TYPE_ARGUMENT) or "")
-        elif kind == "session.tool.progress":
+        elif kind in ("session.tool.progress", "session.tool.success"):
             _remember_child(turn, call_id, data.get("metadata"))
-        elif kind == "session.tool.success":
-            child = _background_child(data.get("metadata")) if call_id in turn.subagents else ""
-            if child:
-                turn.children[child] = call_id
 
     async def _mount(self) -> None:
         """Mount the tool server in OpenCode and wait until its tools are advertised.
@@ -1270,7 +1248,7 @@ class OpenCodeBackend:
     async def run_turn(self, request: TurnRequest) -> AsyncIterator[TurnEvent]:
         """Run one turn: one prompt, and every execution of the session until its work is complete.
 
-        OpenCode ends an execution while subagents started with ``background``
+        OpenCode ends an execution while the subagents it started
         still run, and runs the session once more for the report of each. The
         turn ends with the execution that answers the last report, and its
         final is every answer in order.

@@ -5,7 +5,7 @@ admission, scopes, delivery, platform tools, and second-brain retrieval.
 OpenCode runs the model, stores its sessions, and provides its built-in tools.
 The processes communicate over HTTP.
 
-The adapter is pinned to OpenCode **2.2.5**. It checks the server version at
+The adapter is pinned to OpenCode **2.4.1**. It checks the server version at
 startup and refuses a different version. The experimental MCP mount and
 session-instruction endpoints, plugin hooks, and permission names must be
 checked before changing the pin.
@@ -83,7 +83,7 @@ user. A process with those tools can reach other sessions, the provider key,
 and the tool-server token stored by OpenCode. One OpenCode server must
 therefore contain only conversations in the same trust domain when such tools
 are allowed. For shared deployments, deny the built-in file, shell, web,
-subagent, and Code Mode tools with `deny_tools`:
+subagent, automation, media generation, and Code Mode tools with `deny_tools`:
 
 ```yaml
 backends:
@@ -91,7 +91,9 @@ backends:
     deny_tools: [
       shell, execute, edit, read, grep, glob, webfetch, websearch, subagent, external_directory,
       opencode_session_rename, opencode_session_move, opencode_worktree_create, opencode_worktree_list,
-      opencode_models, opencode_list_mcp_resources, opencode_read_mcp_resource,
+      opencode_models, opencode_list_mcp_resources, opencode_read_mcp_resource, opencode_list_mcp_events,
+      automation_create, automation_list, automation_pause, automation_resume, automation_delete,
+      generate_image, generate_video,
     ]
 ```
 
@@ -120,10 +122,25 @@ because that level enforces nothing.
 - `opencode_worktree_create`
 - `opencode_worktree_list`
 - `opencode_models`
+- `automation_create`
+- `automation_list`
+- `automation_pause`
+- `automation_resume`
+- `automation_delete`
 
 `opencode_session_rename` and `opencode_session_move` accept any `sessionID`
 and never ask for approval. So a model can rename or move the session of
-another conversation. A deny on both names prevents this.
+another conversation. A deny on both names prevents this. A move to a
+directory outside the server's project asks for `external_directory`.
+
+The `automation_*` tools manage the automations of the OpenCode project.
+`automation_create` schedules a prompt, a shell command or a Code Mode script
+with no approval. `automation_resume` starts a paused automation again. An
+automation runs later, outside the Belle turn that asked for it, and no person
+can approve what it does then. Belle follows only the executions of its own
+turns. It does not follow an automation that an operator schedules on a Belle
+session through OpenCode. `generate_image` and `generate_video` exist only while
+OpenCode lists a model of type `image` or `video`.
 
 A tool that a scope denies is not in the model's tool list for that turn. On
 a host with several platforms, each tool that only another platform serves is
@@ -165,12 +182,14 @@ After three responses in a row that end at the output limit, with or without
 a tool call, OpenCode fails the execution. The turn fails with OpenCode's
 message after the cut text.
 
-OpenCode also continues a response that stops after it starts to answer, for
+OpenCode retries a response that stops after it starts to answer, for
 example a stream that ends with no finish reason or with a finish reason that
 OpenCode does not know. OpenCode fails the response and keeps its text. After
-its retry wait, OpenCode tells the model to go on without repeating completed
-content. Belle reads these parts as it reads a cut response and its
-continuation.
+its retry wait, it sends the same request again. The model does not see the
+failed text, so the retry writes the answer again from its start. Belle reads
+the retry as the answer and drops the failed text. A streamed reply shows the
+failed text, and then the retry in a new paragraph. This is also true when the
+failed response continued a cut response.
 
 A turn can fail after the model wrote text, for example when OpenCode makes
 no more retries. The reply then holds that text, and a line that starts with
@@ -189,7 +208,7 @@ by default. See the [configuration guide](../config.md#second-brain).
 
 ## Lost connections
 
-Belle reads OpenCode's events on one long-lived connection. OpenCode 2.2.5
+Belle reads OpenCode's events on one long-lived connection. OpenCode 2.4.1
 sends a heartbeat on it every 15 seconds. When nothing arrives for 45 seconds,
 Belle closes the connection and opens a new one. A dropped network can stop
 the connection without an error, so this limit is the only signal. After it

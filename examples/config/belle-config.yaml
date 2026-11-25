@@ -42,7 +42,9 @@ backends:
     deny_tools: [
       shell, execute, edit, read, grep, glob, webfetch, websearch, subagent, external_directory,
       opencode_session_rename, opencode_session_move, opencode_worktree_create, opencode_worktree_list,
-      opencode_models, opencode_list_mcp_resources, opencode_read_mcp_resource,
+      opencode_models, opencode_list_mcp_resources, opencode_read_mcp_resource, opencode_list_mcp_events,
+      automation_create, automation_list, automation_pause, automation_resume, automation_delete,
+      generate_image, generate_video,
     ]
     tools:
       bind: ${BELLE_TOOLS_BIND}

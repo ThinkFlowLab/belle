@@ -503,10 +503,6 @@ CONTINUE = "Your last response hit the output token limit (stop reason: length).
 INCOMPLETE = {"type": "tool.input-incomplete", "message": "The tool call was not executed because the output token limit"}
 # A tool that the provider runs itself. OpenCode marks its call `executed`.
 HOSTED = "web_search"
-# OpenCode's prompt to go on after a step whose response stopped after it started.
-CONTINUE_BROKEN = (
-    "The previous response was interrupted. Continue from where you left off without repeating completed content."
-)
 # How OpenCode fails such a step: a stream that ended with no finish, and a finish that the provider did not name.
 BROKEN = {
     "no-finish": {"type": "provider.invalid-output", "message": "OpenAI Chat stream ended without finish_reason"},
@@ -515,7 +511,7 @@ BROKEN = {
     },
 }
 # Steps as (text, finish, the tool the step calls or ""), and the final OpenCode's run of them gives. A finish
-# that ``BROKEN`` names fails the step, and OpenCode continues it.
+# that ``BROKEN`` names fails the step, and OpenCode retries it: the next step starts the answer again.
 STEPS = {
     # A cut step that called no tool is continued by the next step.
     "continued": ([("the quick br", "length", ""), ("own fox", "stop", "")], "the quick brown fox"),
@@ -530,25 +526,26 @@ STEPS = {
     "hosted-tool": ([("Paris is the capital.", "stop", HOSTED)], "Paris is the capital."),
     # OpenCode continues a cut step whose only call the provider ran.
     "cut-hosted-tool": ([("Paris is", "length", HOSTED), (" the capital.", "stop", "")], "Paris is the capital."),
-    # A step whose stream broke is continued by the next step.
+    # The step that retries a step whose stream broke gives the whole answer.
     "broken": (
-        [("The review is on Thursday. Bring the Q3 fig", "no-finish", ""), ("ures.", "stop", "")],
-        "The review is on Thursday. Bring the Q3 figures.",
+        [("The review is on Thursday. Bring the Q3 fig", "no-finish", ""), ("The review is on Thursday.", "stop", "")],
+        "The review is on Thursday.",
     ),
-    "unknown-finish": ([("forty", "unknown", ""), ("-two", "stop", "")], "forty-two"),
-    # A broken text and a cut that continues it run on into the step that continues both.
-    "broken-then-cut": ([("one ", "no-finish", ""), ("two ", "length", ""), ("three", "stop", "")], "one two three"),
-    # A broken step that called a tool is a tool-calls step.
+    "unknown-finish": ([("forty", "unknown", ""), ("forty-two", "stop", "")], "forty-two"),
+    # A cut in the retry of a broken step is continued as any cut is.
+    "broken-then-cut": ([("one ", "no-finish", ""), ("one two ", "length", ""), ("three", "stop", "")], "one two three"),
     "broken-tool-call": ([("I will read it.", "no-finish", "read"), ("Done.", "stop", "")], "Done."),
-    "broken-hosted-tool": ([("Paris is", "no-finish", HOSTED), (" the capital.", "stop", "")], "Paris is the capital."),
+    "broken-hosted-tool": ([("Paris is", "no-finish", HOSTED), ("Paris.", "stop", "")], "Paris."),
+    # The retry of a broken step that continued a cut sends the same request: it continues the cut text.
+    "cut-then-broken": ([("one ", "length", ""), ("two ", "no-finish", ""), ("two three", "stop", "")], "one two three"),
 }
 
 
 def _emit_steps(opencode, steps) -> None:
-    """Emit steps as OpenCode 2.1.4 does.
+    """Emit steps as OpenCode 2.4.1 does.
 
     A tool call of a cut or broken step fails before it runs. A cut step that called no tool that OpenCode runs is
-    followed by OpenCode's prompt to go on. A broken step fails, and OpenCode waits to retry it and then prompts.
+    followed by OpenCode's prompt to go on. A broken step fails, and OpenCode waits and then retries it.
     """
     for index, (text, finish, tool) in enumerate(steps):
         step = {"assistantMessageID": f"msg_{index}"}
@@ -565,7 +562,6 @@ def _emit_steps(opencode, steps) -> None:
         if finish in BROKEN:
             opencode.emit("session.step.failed", error=BROKEN[finish], **step)
             opencode.emit("session.retry.scheduled", attempt=2, at=0, error=BROKEN[finish], **step)
-            opencode.emit("session.synthetic", text=CONTINUE_BROKEN)
             continue
         opencode.emit("session.step.ended", finish=finish, cost=0, tokens={}, **step)
         if finish == "length" and tool in ("", HOSTED):
@@ -573,7 +569,7 @@ def _emit_steps(opencode, steps) -> None:
 
 
 def _stored_steps(steps) -> list[dict]:
-    """The same steps as OpenCode 2.1.4 stores them."""
+    """The same steps as OpenCode 2.4.1 stores them."""
     messages = []
     for index, (text, finish, tool) in enumerate(steps):
         called = [{"type": "tool", "id": f"call_{index}", "name": tool, "executed": tool == HOSTED}] if tool else []
@@ -584,7 +580,6 @@ def _stored_steps(steps) -> list[dict]:
             messages.append(
                 {"type": "assistant", "finish": "error", "error": BROKEN[finish], "retry": retry, "content": content}
             )
-            messages.append({"type": "synthetic", "text": CONTINUE_BROKEN})
             continue
         messages.append({"type": "assistant", "finish": finish, "content": content})
         if finish == "length" and tool in ("", HOSTED):
@@ -610,9 +605,16 @@ def test_stored_steps_cut_at_the_output_limit_are_read_as_they_ran(steps, final)
     assert (ended.kind, ended.text) == (EVENT_SUCCEEDED, final)
 
 
-@pytest.mark.parametrize("name", ["continued", "broken"])
-async def test_the_step_that_continues_a_cut_or_broken_reply_says_so(opencode, backend, name):
-    (first, _, _), (second, _, _) = STEPS[name][0]
+@pytest.mark.parametrize(
+    ("name", "steps"),
+    [
+        ("continued", [{}, {"continues": True}]),
+        ("broken", [{}, {}]),
+        # The step before the retry is the failed one, and the retry does not continue its text.
+        ("cut-then-broken", [{}, {"continues": True}, {}]),
+    ],
+)
+async def test_the_step_that_continues_a_cut_reply_says_so_and_a_retry_does_not(opencode, backend, name, steps):
     stream = await _accepted(backend)
     _emit_steps(opencode, STEPS[name][0])
     opencode.emit("session.execution.succeeded")
@@ -621,7 +623,9 @@ async def test_the_step_that_continues_a_cut_or_broken_reply_says_so(opencode, b
 
     # A platform starts a new paragraph at a step event, unless the step continues the text before it.
     shown = [(event.kind, event.text or event.data) for event in events if event.kind in (EVENT_STEP, EVENT_TEXT_DELTA)]
-    assert shown == [(EVENT_STEP, {}), (EVENT_TEXT_DELTA, first), (EVENT_STEP, {"continues": True}), (EVENT_TEXT_DELTA, second)]
+    texts = [text for text, _, _ in STEPS[name][0]]
+    expected = [item for data, text in zip(steps, texts, strict=True) for item in ((EVENT_STEP, data), (EVENT_TEXT_DELTA, text))]
+    assert shown == expected
 
 
 async def test_a_step_cut_before_it_wrote_any_text_is_continued_by_the_next(opencode, backend):
@@ -663,6 +667,31 @@ async def test_after_a_reconnect_a_running_turn_goes_on_from_the_steps_its_sessi
     assert (events[-1].kind, events[-1].text) == (EVENT_SUCCEEDED, "the quick brown fox")
 
 
+async def test_after_a_reconnect_the_retry_of_a_broken_step_does_not_continue_the_failed_text(opencode, backend):
+    stream = await _accepted(backend)
+    opencode.emit("session.step.started", assistantMessageID="msg_0")
+    assert (await anext(stream)).kind == EVENT_STEP
+    # A cut step and the step that continues it break while no event is read. OpenCode waits to retry the step.
+    *stored, retry = STEPS["cut-then-broken"][0]
+    for message in _stored_steps(stored):
+        opencode.store(message.pop("type"), **message)
+    opencode.drop_stream()
+    reading = asyncio.create_task(_rest(stream))
+    async with asyncio.timeout(5):
+        while f"/api/session/{C1}/message" not in opencode.paths("GET"):
+            await asyncio.sleep(0.01)
+    _emit_steps(opencode, [retry])
+    opencode.store("assistant", finish="stop", content=[{"type": "text", "text": retry[0]}])
+    opencode.store("idle", outcome="succeeded")
+    opencode.emit("session.execution.succeeded")
+
+    events = await reading
+
+    # The retry starts a new paragraph, as it does with no reconnect, and continues the cut text in the final.
+    assert [event.data for event in events if event.kind == EVENT_STEP] == [{}]
+    assert (events[-1].kind, events[-1].text) == (EVENT_SUCCEEDED, "one two three")
+
+
 async def test_a_step_retried_from_its_start_is_a_new_step_and_not_a_continuation(opencode, backend):
     stream = await _accepted(backend)
     step = {"assistantMessageID": "msg_0"}
@@ -678,15 +707,15 @@ async def test_a_step_retried_from_its_start_is_a_new_step_and_not_a_continuatio
 
 
 @pytest.mark.parametrize("between", ["model-switched", "agent-switched", "location-switched", "shell"])
-async def test_a_reconnect_reads_a_broken_step_as_continued_when_other_messages_come_before_the_prompt(
+async def test_a_reconnect_reads_the_retry_of_a_broken_step_as_the_answer_when_other_messages_come_between(
     opencode, backend, between
 ):
     stream = await _accepted(backend)
     while not opencode.stream.empty():
         opencode.stream.get_nowait()
-    failed, prompt, last = _stored_steps(STEPS["broken"][0])
+    failed, last = _stored_steps(STEPS["broken"][0])
     # OpenCode stores what happens in the session while it waits to retry the failed step, such as a model switch.
-    for message in (failed, {"type": between}, prompt, last):
+    for message in (failed, {"type": between}, last):
         opencode.store(message.pop("type"), **message)
     opencode.store("idle", outcome="succeeded")
     opencode.running.discard(C1)
@@ -717,14 +746,15 @@ def test_stored_steps_read_a_failed_step_that_the_next_step_follows_with_no_prom
     ("steps", "text", "tool", "final"),
     [
         ([], "two", "", f"two\n\n{STOPPED}"),
-        ([("one ", "no-finish", "")], "two", "", f"one two\n\n{STOPPED}"),
+        # The step that retries a broken step starts the answer again.
+        ([("one ", "no-finish", "")], "two", "", f"two\n\n{STOPPED}"),
         # The text of a step that called a tool tells of the call.
         ([], "I will read it.", "read", TRANSPORT["message"]),
         ([("Paris is", "stop", "")], "I will read it.", "read", f"Paris is\n\n{STOPPED}"),
         # A turn that wrote nothing fails with OpenCode's message alone.
         ([], "", "", TRANSPORT["message"]),
     ],
-    ids=["first", "after-a-continuation", "tool-call", "tool-call-after-an-answer", "no-text"],
+    ids=["first", "after-a-retry", "tool-call", "tool-call-after-an-answer", "no-text"],
 )
 async def test_a_failed_step_that_opencode_does_not_continue_fails_the_turn_after_its_text(
     opencode, backend, steps, text, tool, final
@@ -755,14 +785,14 @@ async def test_peek_history_reads_stored_steps_cut_at_the_output_limit_as_one_an
     opencode.store("user", id=message_id("", "c1", "r-peek"))
     for message in _stored_steps(STEPS["continued"][0] + STEPS["cut-tool-call"][0] + STEPS["broken"][0]):
         opencode.store(message.pop("type"), **message)
-    # A broken step that OpenCode waits to retry. It has no prompt to go on yet.
+    # A broken step that OpenCode waits to retry.
     waiting = {"finish": "error", "error": TRANSPORT, "retry": {"attempt": 2}}
     opencode.store("assistant", **waiting, content=[{"type": "text", "text": "Next"}])
 
     parts = await backend.peek_history("c1", "r-peek")
 
     assert [part.text for part in parts] == [
-        "the quick brown fox", "Done in pieces.", "The review is on Thursday. Bring the Q3 figures.", "Next",
+        "the quick brown fox", "Done in pieces.", "The review is on Thursday.", "Next",
     ]
 
 

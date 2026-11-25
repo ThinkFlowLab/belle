@@ -29,7 +29,7 @@ scopes:
 """
 
 KEY = "sk-the-provider-key"
-# Each entry as OpenCode 2.2.5 answers it, less the members no check reads. The settings hold the provider key.
+# Each entry as OpenCode 2.4.1 answers it, less the members no check reads. The settings hold the provider key.
 SETTINGS = {"apiKey": KEY, "baseURL": "https://provider.invalid/v1"}
 ANSWERS = {
     "/api/model/default": {"providerID": "configured", "id": "vendor/served", "settings": SETTINGS},

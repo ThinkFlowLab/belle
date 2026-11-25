@@ -16,6 +16,7 @@ from standin import call, said
 from belle_agent import hook_server
 from belle_agent.backend import TurnRequest, TurnScope
 from belle_agent.host import OUTCOME_FAILED, OUTCOME_POSTED_BY_TOOL, OUTCOME_POSTED_FINAL
+from belle_agent.integrations.opencode import relay
 from belle_agent.silence import post_tool_instruction
 
 pytestmark = [pytest.mark.adapter, pytest.mark.plugin]
@@ -106,6 +107,33 @@ async def test_files_of_a_thread_over_the_relay_endpoints_limit_reach_the_model(
     assert world.kit.backend._relay.refused == {}
     request = json.dumps(model.requests(_session(model, "again SAY=again"))[-1])
     assert all(note in request for note in notes)
+
+
+async def test_the_relay_gets_an_inlined_file_as_its_length_and_the_model_gets_it_whole(world, model, monkeypatch):
+    """OpenCode marks an inlined text file only by how its text starts.
+
+    So a message text that starts the same way reaches the relay as its length
+    too. The model gets both whole.
+    """
+    seen = []
+    answer = relay._answer
+
+    def recorded(hook, event, *rest):
+        seen.append((hook, json.dumps(event)))
+        return answer(hook, event, *rest)
+
+    monkeypatch.setattr(relay, "_answer", recorded)
+    note = "x" * 4096
+    uri = "data:text/plain;base64," + base64.b64encode(note.encode()).decode()
+    await world.send(world.direct("read SAY=read", files=({"name": "note.txt", "uri": uri},)))
+    lookalike = "\n\nAttached file: none\n\nSAY=lookalike"
+    await _turn(world.kit.backend, lookalike, "r-lookalike")
+
+    file_context, lookalike_context = [event for hook, event in seen if hook == "context"]
+    assert note not in file_context and '"omitted"' in file_context
+    assert "SAY=lookalike" not in lookalike_context and '"omitted"' in lookalike_context
+    asked = json.dumps([entry["body"] for entry in model.log])
+    assert note in asked and json.dumps(lookalike)[1:-1] in asked
 
 
 async def test_with_the_relay_endpoint_stopped_a_turn_fails_closed(world, model):

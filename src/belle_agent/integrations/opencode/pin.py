@@ -5,4 +5,4 @@ The same version is the ``OPENCODE_VERSION`` argument of
 adapter compares it at start with what the server reports.
 """
 
-OPENCODE_VERSION = "2.2.5"
+OPENCODE_VERSION = "2.4.1"

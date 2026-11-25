@@ -20,10 +20,13 @@ that OpenCode gives it, ``opencode_worktree_create`` for
 ``opencode.worktree_create``, and a deny on that name removes that tool
 alone. The exception is ``opencode_worktree_remove``: ``edit`` gates it, as
 it gates ``write``.
-Five other Code Mode tools raise no request under any ``ask`` rule, as
-``execute`` does. ``opencode_list_mcp_resources`` raises one request that
-names every mounted MCP server, so it asks while a server is mounted, as
-Belle's is.
+Ten other Code Mode tools raise no request under their own name, as
+``execute`` does. ``automation_create`` asks only under the actions of what it
+schedules: ``subagent``, ``shell``, the tools of a Code Mode action, and
+``opencode_watch_mcp_event`` for an event trigger.
+``opencode_list_mcp_resources`` raises one request that names every mounted
+MCP server, so it asks while a server is mounted, as Belle's is.
+``opencode_list_mcp_events`` asks for the server it names.
 OpenCode offers ``todowrite`` only when its ``experimental.todo`` setting is
 on.
 """
@@ -60,6 +63,15 @@ BUILTIN_ACTIONS: Mapping[str, str] = {
     "opencode_models": "opencode_models",
     "opencode_list_mcp_resources": "opencode_list_mcp_resources",
     "opencode_read_mcp_resource": "opencode_read_mcp_resource",
+    "opencode_list_mcp_events": "opencode_list_mcp_events",
+    "automation_create": "automation_create",
+    "automation_list": "automation_list",
+    "automation_pause": "automation_pause",
+    "automation_resume": "automation_resume",
+    "automation_delete": "automation_delete",
+    # Read from the source: OpenCode offers these only while it lists an image or a video model.
+    "generate_image": "generate_image",
+    "generate_video": "generate_video",
 }
 #: Actions that are no tool's name and that a scope may still name. ``external_directory`` gates every
 #: path outside the server's working directory, for whichever tool reaches for it.
@@ -72,6 +84,11 @@ NEVER_ASKED: frozenset[str] = frozenset({
     "opencode_worktree_create",
     "opencode_worktree_list",
     "opencode_models",
+    "automation_create",
+    "automation_list",
+    "automation_pause",
+    "automation_resume",
+    "automation_delete",
 })
 
 #: What a scope may name of OpenCode's own, with the levels OpenCode applies to each.

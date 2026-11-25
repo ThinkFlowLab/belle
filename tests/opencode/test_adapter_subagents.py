@@ -1,8 +1,8 @@
 """A turn whose subagents run in the background, on the scripted wire.
 
-The sequences are the ones OpenCode 2.0.24 emitted for a ``subagent`` call
-made with ``background``: the call returns at once, the execution ends, and
-OpenCode runs the session again for the report of each child. The same turns
+The sequences follow OpenCode 2.4.1, which runs every child of a
+``subagent`` call in the background: the call returns at once, the execution
+ends, and OpenCode runs the session again for the report of each child. The same turns
 against the pinned build are in ``test_adapter_subagents_opencode.py``. One
 check plays an order that was not recorded and says so.
 """
@@ -39,9 +39,9 @@ async def backend(opencode):  # noqa: F811
 
 
 def launch(opencode: FakeOpenCode, child: str, call: str) -> None:  # noqa: F811
-    """One step that calls ``subagent`` with ``background``: the call returns while its child runs."""
+    """One step that calls ``subagent``: the call returns while its child runs."""
     running = {"sessionID": child, "status": "running"}
-    arguments = {"agent": "general", "description": "d", "prompt": "p", "background": True}
+    arguments = {"agent": "general", "description": "d", "prompt": "p"}
     opencode.parents[child] = C1
     opencode.running.add(child)
     opencode.emit("session.step.started")
@@ -152,26 +152,6 @@ async def test_a_child_that_failed_or_was_stopped_ends_its_call_as_failed(openco
     results = [(event.data["call_id"], event.data.get("failed")) for event in events if event.kind == EVENT_TOOL_RESULT]
     assert results == [("call_a", True), ("call_b", True)]
     assert events[-1].text == "Both are started.\n\nThe first failed.\n\nThe second was stopped."
-
-
-async def test_a_call_that_waits_for_its_child_is_one_execution_as_before(opencode, backend):  # noqa: F811
-    stream = await _accepted(backend)
-    done = {"sessionID": A, "status": "completed"}
-    opencode.emit("session.step.started")
-    opencode.emit("session.tool.input.started", id="call_a", name="subagent")
-    opencode.emit("session.tool.called", id="call_a", input={"agent": "general", "description": "d", "prompt": "p"})
-    opencode.emit("session.tool.progress", id="call_a", metadata={"sessionID": A, "status": "running"})
-    opencode.emit("session.tool.success", id="call_a", content=[{"type": "text", "text": "ten"}], metadata=done)
-    opencode.emit("session.step.ended", finish="tool-calls")
-    answer(opencode, "It says ten.")
-    succeed(opencode)
-
-    events = await _rest(stream)
-
-    assert shape(events) == [
-        (EVENT_STEP, ""), (EVENT_TOOL_CALLED, "call_a"), (EVENT_TOOL_RESULT, "call_a"),
-        (EVENT_STEP, ""), (EVENT_TEXT_DELTA, "It says ten."), (EVENT_SUCCEEDED, "It says ten."),
-    ]
 
 
 async def test_a_child_sessions_text_and_tools_are_forwarded_on_the_parent_subagent_call(opencode, backend):  # noqa: F811

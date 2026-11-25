@@ -26,6 +26,13 @@
 const URL = process.env.BELLE_RELAY_URL
 const TOKEN = process.env.BELLE_RELAY_TOKEN ?? ""
 
+// How OpenCode starts the text part of a text file or a directory that it
+// inlines into the history (`packages/core/src/session/runner/to-llm-message.ts`).
+// The part has no other mark, so a message text that starts the same way is
+// stubbed too. Belle reads no message text from these events, and the model
+// still gets the whole text.
+const ATTACHED = /^\n\nAttached (file|directory): /
+
 // A JSON.stringify replacer that stubs file contents. They sit in the `data` of
 // a prompt's file or a media source, a `data:` URI of a file or tool result, and
 // the `text` of a text file inlined into the history.
@@ -34,7 +41,7 @@ function omitFiles(this: any, key: string, value: unknown) {
   const file =
     (key === "data" && ("mime" in this || "mediaType" in this)) ||
     (key === "uri" && value.startsWith("data:")) ||
-    (key === "text" && this.metadata?.attachment !== undefined)
+    (key === "text" && this.type === "text" && ATTACHED.test(value))
   return file ? { omitted: value.length } : value
 }
 
