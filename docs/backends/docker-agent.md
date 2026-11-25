@@ -145,6 +145,13 @@ as `root`. Belle refuses to start when the entry agent, an expert or a subagent 
 needs. A subagent gets no system text of the turn: Docker Agent sends its prompt hook for the person's
 message only.
 
+Docker Agent compacts a session only when it knows the context window of the model. It finds the window in
+the models.dev catalogue. For a model that the catalogue does not list, such as a model on your own
+`API_BASE`, set `context_window` on the model, in tokens. Without it, the compaction fails with a warning.
+To end a provider stream that stays silent, set `stream_idle_timeout` on the model, for example `5m`. The
+shipped YAML holds both keys as comments. Docker Agent expands `${env.*}` in `model` and `base_url` only,
+so write the values in your copy of the YAML.
+
 Every hook of the agent YAML runs the same relay command under `sh`, which posts the hook's event to
 `BELLE_RELAY_URL` with curl. When the relay fails, the command exits 2 with curl's reason, and Docker Agent
 blocks the hook with it: `The relay to Belle failed: curl: (7) Failed to connect to belle port 18200 …`.
