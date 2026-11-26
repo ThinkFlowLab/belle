@@ -354,6 +354,10 @@ class _Turn:
     reading: asyncio.Task[TurnEvent] | None = field(default=None, repr=False)
     #: The messages added to this turn while it ran. Each ends as the turn ends.
     steered: list["_Turn"] = field(default_factory=list)
+    #: The messages of ``steered`` that the backend is still sending. Each is settled once its steer returns.
+    steering: list["_Turn"] = field(default_factory=list)
+    #: The mark the turn ended with, once its steered messages have it.
+    end_mark: str = ""
     #: The tool events held back from a platform whose card waits for a post: see ``ShowsTurns``.
     unshown: list[TurnEvent] = field(default_factory=list)
     subagents: dict[str, _SubagentWork] = field(default_factory=dict)
@@ -1490,15 +1494,26 @@ class ConversationHost(SessionRuns, ScheduledTurns, HostCommands, EventAdmission
             # The running turn's additions grew when it started. The rest of its scope is what admission settled.
             or replace(running.request.scope, system_additions=()) != replace(turn.request.scope, system_additions=())
             or not self._may_click(CLICK_STOP, running, turn.inbound.sender)[0]
-            or not await self._backend.steer(turn.request)
         ):
             return False
-        decisions = self._hosted[turn.inbound.platform].decisions
-        if decisions is not None:
-            decisions.queued(turn.inbound)
+        # Listed before the backend takes it: the turn can end while the backend sends it, and hand it back.
         async with running.marking:
             running.steered.append(turn)
-            await self._mark(turn.inbound, MARK_STEERED)
+            running.steering.append(turn)
+        took = await self._backend.steer(turn.request)
+        async with running.marking:
+            running.steering.remove(turn)
+            if turn not in running.steered:
+                # The turn handed it back while it was sent. It waits for a turn of its own.
+                return True
+            if not took:
+                running.steered.remove(turn)
+                return False
+            decisions = self._hosted[turn.inbound.platform].decisions
+            if decisions is not None:
+                decisions.queued(turn.inbound)
+            # A turn that ended meanwhile, and read the message, gives it its own end mark.
+            await self._mark(turn.inbound, running.end_mark or MARK_STEERED)
         return True
 
     async def _hand_back(self, turn: _Turn, request_ids: Collection[str]) -> None:
@@ -1817,8 +1832,11 @@ class ConversationHost(SessionRuns, ScheduledTurns, HostCommands, EventAdmission
                 await self._conclude(turn, ENDED_SILENT if outcome == OUTCOME_WITHHELD else _END_MARKS[outcome])
                 await self._mark_turn(turn, _END_MARKS[outcome])
                 async with turn.marking:
+                    turn.end_mark = _END_MARKS[outcome]
                     for steered in turn.steered:
-                        await self._mark(steered.inbound, _END_MARKS[outcome])
+                        # A message still on its way is settled when the backend's steer returns.
+                        if steered not in turn.steering:
+                            await self._mark(steered.inbound, _END_MARKS[outcome])
 
     async def _prepared_terminal(self, turn: _Turn, key: str) -> TurnEvent:
         """Complete the turn's request as it starts, then run it to its terminal event."""

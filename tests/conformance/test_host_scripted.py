@@ -4,6 +4,7 @@ These need a backend to fail, stall or ask on cue. Each joins the conformance
 suite when a real backend can run their operation.
 """
 
+import asyncio
 import json
 import logging
 from dataclasses import replace
@@ -726,6 +727,83 @@ async def test_steered_messages_the_turn_did_not_read_run_next_as_one_turn_and_e
         "late": [MARK_STEERED, MARK_QUEUED, MARK_STARTED, MARK_DONE],
         "later": [MARK_STEERED, MARK_DONE],
     }
+
+
+async def test_a_message_the_turn_hands_back_while_the_backend_takes_it_runs_next(tmp_path):
+    backend = _steers()
+    sent = asyncio.Event()
+    taken = asyncio.Event()
+    steer = backend.steer
+
+    async def slow_steer(request):
+        took = await steer(request)
+        sent.set()
+        await taken.wait()
+        return took
+
+    backend.steer = slow_steer
+    async with worlds(backend, tmp_path) as build:
+        world = await build(STEER_IN_C1)
+        backend.unread_steers = 1
+        world.kit.play(ModelTurn(final="answered", hold=True))
+        await world.platform.inject(world.message("first", thread="root"))
+        await world.kit.holding()
+        late = world.message("late", thread="root")
+        admitted = asyncio.create_task(world.platform.inject(late))
+        await sent.wait()
+        # The turn ends and hands the message back before the backend's steer returns.
+        world.kit.release()
+        await world.turn_ended(world.requests[0].request_id)
+        taken.set()
+        await admitted
+        await world.host.idle()
+
+    assert world.texts() == ["first", "late"]
+    assert [state for message_id, state in world.platform.marks if message_id == late.message_id] == [
+        MARK_QUEUED, MARK_STARTED, MARK_DONE,
+    ]
+
+
+@pytest.mark.parametrize("took", [True, False], ids=["read", "not-taken"])
+async def test_a_message_whose_steer_returns_after_the_turn_ended_is_marked_once_as_it_ended(tmp_path, took):
+    backend = _steers()
+    sent = asyncio.Event()
+    returned = asyncio.Event()
+    steer = backend.steer
+
+    async def slow_steer(request):
+        taken = await steer(request)
+        sent.set()
+        await returned.wait()
+        return taken and took
+
+    backend.steer = slow_steer
+    async with worlds(backend, tmp_path) as build:
+        world = await build(STEER_IN_C1)
+        world.kit.play(ModelTurn(final="answered", hold=True), ModelTurn(final="own answer"))
+        first = world.message("first", thread="root")
+        await world.platform.inject(first)
+        await world.kit.holding()
+        late = world.message("late", thread="root")
+        admitted = asyncio.create_task(world.platform.inject(late))
+        await sent.wait()
+        world.kit.release()
+        # Wait until the turn has its end mark: its steered messages had theirs then.
+        async with asyncio.timeout(5):
+            while (first.message_id, MARK_DONE) not in world.platform.marks:
+                await asyncio.sleep(0)
+        # The turn ended while the steer was on its way: its message has no mark yet.
+        assert [state for message_id, state in world.platform.marks if message_id == late.message_id] == []
+        returned.set()
+        await admitted
+        await world.host.idle()
+
+    marks = [state for message_id, state in world.platform.marks if message_id == late.message_id]
+    if took:
+        assert world.texts() == ["first"] and marks == [MARK_DONE]
+    else:
+        # Not taken: it runs as a turn of its own, and only that turn's end marks it done.
+        assert world.texts() == ["first", "late"] and MARK_STEERED not in marks and marks.count(MARK_DONE) == 1
 
 
 @pytest.mark.parametrize(
