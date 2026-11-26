@@ -54,6 +54,7 @@ from belle_agent.backend import (
     McpHealth,
     PeekHistoryPart,
     Question,
+    QuestionClosed,
     ToolHost,
     TurnEvent,
     TurnRequest,
@@ -114,6 +115,11 @@ INTERRUPTED = "This turn was interrupted before it gave an answer."
 TOOLS_MISSING = "Belle's tools did not start in Docker Agent, so the turn was stopped"
 #: Docker Agent tells the model this after its own words for a refused call.
 REFUSED = "A person in the conversation refused it."
+#: Docker Agent resumes a held call with no call id, so the answer to one of two held calls could run the other.
+TWO_APPROVALS = (
+    "Docker Agent held a second tool call for a person while one waited, and an answer cannot name the call it"
+    " is for, so the turn was stopped"
+)
 #: The code of Docker Agent's ``error`` event when a hook ended the run.
 HOOK_BLOCKED = "hook_blocked"
 #: Told after the reason a hook ended the run, where Belle's hook endpoint refused a hook while the turn ran.
@@ -156,8 +162,8 @@ class _Turn:
     #: shows it, until the result of either. Docker Agent sends tool events with no session, and a delegation
     #: cannot return to an agent of its chain, so the agent name tells a subagent's calls from the turn's.
     delegations: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
-    #: The tool call Docker Agent holds until a person answers. One waits at a time.
-    question: Question | None = None
+    #: What waits for a person, by id: a tool call Docker Agent holds.
+    waiting: dict[str, Question] = field(default_factory=dict)
     error: str = ""
     #: The code of Docker Agent's ``error``, such as ``hook_blocked`` when a hook ended the run. Empty without one.
     error_code: str = ""
@@ -267,6 +273,8 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
             if (event.get("result") or {}).get("isError"):
                 data["failed"] = True
             text = str(event.get("response") or "")
+            # A held call that has a result waits on nobody, though Docker Agent ended it with no answer.
+            turn.waiting.pop(call_id, None)
             # The result ends the delegation it is, and the delegations that run under it.
             for agent, calls in list(turn.delegations.items()):
                 calls[:] = [(call, run) for call, run in calls if call_id not in (call, run)]
@@ -293,14 +301,17 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
             tool = turn.belle_tools.get(name, name)
             # A person approves the call as shown, so it shows all of its arguments.
             shown = json.dumps(_arguments(function.get("arguments")), ensure_ascii=False)
-            turn.question = Question(
+            if turn.waiting:
+                return TurnEvent(EVENT_FAILED, text=TWO_APPROVALS)
+            question = Question(
                 id=str(call.get("id") or ""),
                 text=f"Allow {tool}: {shown}",
                 options=(APPROVE, REJECT),
                 kind=APPROVAL,
                 tool=tool,
             )
-            return TurnEvent(EVENT_QUESTION, question=turn.question)
+            turn.waiting[question.id] = question
+            return TurnEvent(EVENT_QUESTION, question=question)
         case "stream_stopped":
             turn.ended = True
             reason = str(event.get("reason") or "")
@@ -862,23 +873,34 @@ class DockerAgentBackend:
         return True
 
     async def answer(self, conversation: str, question_id: str, answer: Answer) -> None:
-        """Resume the tool call a turn holds for a person: run it on approval, or refuse it and go on."""
+        """Resume the tool call a turn holds for a person: run it on approval, or refuse it and go on.
+
+        An answer Docker Agent does not take raises :class:`BackendError`, and the call still waits. An answer
+        that nothing waits on raises :class:`QuestionClosed` and runs nothing.
+        """
         turn = self._turns.get(conversation)
-        if turn is None or turn.question is None or turn.question.id != question_id:
-            logger.warning(
-                "docker_agent: no tool call waits for this answer: conversation=%s question=%s",
-                conversation,
-                question_id,
-            )
-            return
-        turn.question = None
+        question = turn.waiting.get(question_id) if turn is not None else None
+        if turn is None or question is None:
+            raise QuestionClosed(f"Docker Agent no longer waits on question {question_id}")
         body = {"confirmation": "approve"} if approves(answer) else {"confirmation": "reject", "reason": REFUSED}
-        await self._wire.call("POST", f"/sessions/{turn.session}/resume", body)
+        # Docker Agent may hold the next call as soon as it has this answer, before the post returns.
+        del turn.waiting[question_id]
+        try:
+            await self._answered(question_id, f"/sessions/{turn.session}/resume", body)
+        except BackendError:
+            turn.waiting[question_id] = question
+            raise
+
+    async def _answered(self, question_id: str, path: str, body: Any) -> None:
+        try:
+            await self._wire.call("POST", path, body)
+        except (WireError, httpx.HTTPError) as exc:
+            raise BackendError(f"Docker Agent did not take the answer to {question_id}: {exc}") from exc
 
     async def pending(self, conversation: str) -> list[Question]:
         """List the tool call the conversation's turn holds for a person, if any."""
         turn = self._turns.get(conversation)
-        return [turn.question] if turn is not None and turn.question is not None else []
+        return list(turn.waiting.values()) if turn is not None else []
 
     async def active(self) -> list[str]:
         """List this deployment's conversations whose session Docker Agent is running, whoever started it."""

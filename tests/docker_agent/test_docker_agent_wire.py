@@ -33,6 +33,7 @@ from belle_agent.backend import (
     Answer,
     BackendError,
     Question,
+    QuestionClosed,
     ToolVerdict,
     TurnRequest,
     TurnScope,
@@ -128,6 +129,8 @@ class FakeDockerAgent:
         self.run_fails = False
         #: Called as each turn request arrives, before its stream.
         self.on_run: Any = None
+        #: How Docker Agent answers a resumed call.
+        self.resume_status = 200
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content) if request.content else None
@@ -170,7 +173,7 @@ class FakeDockerAgent:
         if path.endswith("/queue"):
             return httpx.Response(200, json={"steer": {"depth": self.steer_depth, "capacity": 5}})
         if path.endswith("/resume"):
-            return httpx.Response(200, json={"message": "session resumed"})
+            return httpx.Response(self.resume_status, json={"message": "session resumed"})
         if path.endswith("/agent/belle"):
             if path.split("/")[2] not in self.live or self.run_fails:
                 return httpx.Response(500, json={"message": "failed to run session: session not found"})
@@ -789,11 +792,13 @@ async def test_a_call_held_for_a_person_is_one_approval_and_the_answer_resumes_o
                 if event.kind == EVENT_QUESTION:
                     asked.append(event.question)
                     assert await backend.pending("c1") == [event.question]
-                    await backend.answer("c1", "another-question", answer)  # nothing waits for it
+                    with pytest.raises(QuestionClosed):  # nothing waits for it
+                        await backend.answer("c1", "another-question", answer)
                     await backend.answer("c1", event.question.id, answer)
                     assert await backend.pending("c1") == []
             assert (event.kind, event.text) == (EVENT_SUCCEEDED, "done")
-        await backend.answer("c1", "call_1", Answer(approved=True))  # the turn is over
+        with pytest.raises(QuestionClosed):  # the turn is over
+            await backend.answer("c1", "call_1", Answer(approved=True))
     finally:
         await backend.close()
 
@@ -805,6 +810,85 @@ async def test_a_call_held_for_a_person_is_one_approval_and_the_answer_resumes_o
         ("POST", "/sessions/s1/resume", {"confirmation": "approve"}),
         ("POST", "/sessions/s1/resume", {"confirmation": "reject", "reason": adapter.REFUSED}),
     ]
+
+
+def _held(call_id: str, by: str = "root") -> dict:
+    call = {"id": call_id, "type": "function", "function": {"name": "belle_echo", "arguments": "{}"}}
+    return {"type": "tool_call_confirmation", "agent_name": by, "tool_call": call}
+
+
+
+
+async def test_a_second_held_call_while_one_waits_stops_the_turn():
+    fake = FakeDockerAgent([*_started(), _held("call_1"), _held("call_2")])
+    backend = await _started_backend(fake)
+    try:
+        twice = await _events(backend)
+    finally:
+        await backend.close()
+
+    assert (twice[-2].kind, twice[-1].kind, twice[-1].text) == (EVENT_QUESTION, EVENT_FAILED, adapter.TWO_APPROVALS)
+
+
+async def test_the_next_held_call_is_asked_though_it_comes_before_the_answer_to_the_last_returns():
+    fake = FakeDockerAgent()
+    resumed = asyncio.Event()
+    release = asyncio.Event()
+
+    async def server(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/resume"):
+            resumed.set()
+            # Docker Agent has the answer and holds the next call before the post returns.
+            await release.wait()
+        return fake(request)
+
+    backend = await _started_backend(server)
+
+    async def stream():
+        for event in [*_started(), _held("call_1")]:
+            yield event
+        await resumed.wait()
+        for event in [_result("root", "call_1"), _held("call_2")]:
+            yield event
+        await release.wait()
+        for event in [_result("root", "call_2"), STOPPED]:
+            yield event
+
+    fake.turns = [stream()]
+    kinds, answers = [], []
+    try:
+        async for event in backend.run_turn(TurnRequest(conversation="c1", request_id="r1", text="hi")):
+            kinds.append(event.kind)
+            if event.kind == EVENT_QUESTION and event.question.id == "call_1":
+                answers.append(asyncio.create_task(backend.answer("c1", "call_1", Answer(approved=True))))
+            elif event.kind == EVENT_QUESTION:
+                release.set()
+                await backend.answer("c1", "call_2", Answer(approved=True))
+        await asyncio.gather(*answers)
+    finally:
+        await backend.close()
+
+    assert kinds.count(EVENT_QUESTION) == 2 and kinds[-1] == EVENT_SUCCEEDED
+
+
+async def test_a_held_call_that_ends_with_no_answer_waits_on_nobody_and_a_failed_answer_keeps_it():
+    turn = [*_started(), _held("call_1"), _result("root", "call_1"), _held("call_2"), _result("root", "call_2"), STOPPED]
+    fake = FakeDockerAgent(turn)
+    fake.resume_status = 500
+    backend = await _started_backend(fake)
+    asked, pending = [], []
+    try:
+        async for event in backend.run_turn(TurnRequest(conversation="c1", request_id="r1", text="hi")):
+            if event.kind == EVENT_QUESTION:
+                asked.append(event.question.id)
+                with pytest.raises(BackendError, match="did not take the answer"):
+                    await backend.answer("c1", event.question.id, Answer(approved=True))
+                pending.append([question.id for question in await backend.pending("c1")])
+    finally:
+        await backend.close()
+
+    # Docker Agent cancelled each call, as it does with a subagent's: the second is asked, not refused as a second.
+    assert (asked, pending, event.kind) == (["call_1", "call_2"], [["call_1"], ["call_2"]], EVENT_SUCCEEDED)
 
 
 async def test_the_event_log_gives_each_event_its_number_and_a_control_event_none():

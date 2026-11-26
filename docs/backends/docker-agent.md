@@ -152,6 +152,11 @@ When two runs of one subagent are active at the same time, Belle cannot find the
 it does not show that call. When a subagent's call needs an approval, Belle asks in the conversation of the
 turn and sends the answer to the turn's session.
 
+Docker Agent takes the answer to a held tool call with no id of the call. It holds one call at a time for
+a person, but a subagent and a parallel call of the turn's own agent can each hold one. When a second
+call is held while one waits, Belle stops the turn, because an answer could run the wrong call. A held
+call that ends with no answer, as when Docker Agent cancels it, no longer waits.
+
 Docker Agent compacts a session only when it knows the context window of the model. It finds the window in
 the models.dev catalogue. For a model that the catalogue does not list, such as a model on your own
 `API_BASE`, set `context_window` on the model, in tokens. Without it, the compaction fails with a warning.
