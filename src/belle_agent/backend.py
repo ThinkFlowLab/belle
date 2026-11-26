@@ -508,6 +508,10 @@ class Backend(Protocol):
 
         Return whether the turn took it. A turn that did not take it is left as it was. A message the turn
         took but did not read is named under ``NOT_STEERED`` in its terminal event.
+
+        The turn counts the message as its own before the backend sends it: a turn that ends while the message
+        is on its way still names it under ``NOT_STEERED`` unless it read it, and the host, which lists the
+        message before it calls this, hands it back.
         """
 
     async def ask(self, conversation: str, question: Question) -> str:
