@@ -904,12 +904,14 @@ class DockerAgentBackend:
         if turn is None or turn.task is None or turn.ended or turn.cancelled:
             return False
         body = {"messages": [message(request.text, (), frozenset())]}
+        # The turn's before it is sent: a turn that ends meanwhile counts it among the messages it did not read.
+        turn.steered.append(request.request_id)
         try:
             await self._wire.call("POST", f"/sessions/{turn.session}/steer", body)
         except (WireError, httpx.HTTPError) as exc:
             logger.warning("docker_agent: session %s did not take a steered message: %s", turn.session, exc)
+            turn.steered.remove(request.request_id)
             return False
-        turn.steered.append(request.request_id)
         return True
 
     async def answer(self, conversation: str, question_id: str, answer: Answer) -> None:

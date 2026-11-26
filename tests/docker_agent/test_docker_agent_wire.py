@@ -141,6 +141,8 @@ class FakeDockerAgent:
         #: How Docker Agent answers an elicitation, and a resumed call.
         self.elicitation_status = 200
         self.resume_status = 200
+        #: Called as each steered message arrives, before it is answered.
+        self.on_steer: Any = None
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content) if request.content else None
@@ -179,6 +181,8 @@ class FakeDockerAgent:
         if path.endswith("/status"):
             return httpx.Response(200, json={"streaming": path.split("/")[2] in self.streaming})
         if path.endswith("/steer"):
+            if self.on_steer is not None:
+                self.on_steer()
             return httpx.Response(self.steer_status, json={"status": "queued"})
         if path.endswith("/queue"):
             return httpx.Response(200, json={"steer": {"depth": self.steer_depth, "capacity": 5}})
@@ -1231,6 +1235,26 @@ async def test_a_message_steered_into_a_running_turn_goes_to_its_session_and_non
         ("/sessions/s1/steer", {"messages": [{"role": "user", "content": "during r1"}]}),
         ("/sessions/s1/steer", {"messages": [{"role": "user", "content": "during r2"}]}),
     ]
+
+
+@pytest.mark.parametrize("status", [202, 409], ids=["taken", "refused"])
+async def test_a_steered_message_is_the_turns_while_it_is_sent_and_only_once_taken_after(status):
+    fake = FakeDockerAgent(TEXT_TURN)
+    fake.steer_status = status
+    backend = await _started_backend(fake)
+    listed = []
+    fake.on_steer = lambda: listed.append(list(backend._turns["c1"].steered))
+    try:
+        async for event in backend.run_turn(TurnRequest(conversation="c1", request_id="r1", text="hi")):
+            if event.kind == EVENT_STEP:
+                took = await backend.steer(TurnRequest(conversation="c1", request_id="steer-a", text="a"))
+                after = list(backend._turns["c1"].steered)
+    finally:
+        await backend.close()
+
+    # A turn that ended during the send would name it under NOT_STEERED.
+    assert listed == [["steer-a"]]
+    assert (took, after) == ((True, ["steer-a"]) if status == 202 else (False, []))
 
 
 @pytest.mark.parametrize(("depth", "sent"), [(1, []), (0, [{"role": "user", "content": "b"}])], ids=["held", "lost"])
