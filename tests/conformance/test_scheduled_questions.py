@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 from conformance_kit import LoopbackKit, worlds
 from scripted_backend import ScriptedBackend
 
-from belle_agent.backend import EVENT_SUCCEEDED, Question, ToolCall, TurnEvent
+from belle_agent.backend import EVENT_SUCCEEDED, Answer, Question, ToolCall, TurnEvent
 from belle_agent.host import OUTCOME_POSTED_FINAL, _HeldCall
 
 
@@ -20,7 +20,7 @@ async def test_refuse_mode_answers_backend_questions_with_reject(tmp_path):
 
         await world.host._ask(turn, Question(id="q1", text="Continue?", options=("yes", "no")))
 
-        assert world.kit.answers[-1][2].values == ("reject",)
+        assert world.kit.answers[-1][2] == Answer(values=("reject",), approved=False)
         assert world.questions() == []
 
 
@@ -41,7 +41,7 @@ async def test_ask_target_backend_question_expires_and_is_rejected(tmp_path):
         await world.host._ask(turn, question)
         await asyncio.sleep(1.05)
 
-        assert world.kit.answers[-1][2].values == ("reject",)
+        assert world.kit.answers[-1][2] == Answer(values=("reject",), approved=False)
         assert ("loopback", "q2") not in world.host._questions
         assert withdrawn == ["q2"]
 

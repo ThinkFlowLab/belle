@@ -186,6 +186,9 @@ from belle_agent.turn_policy import conversation_key, mid_turn_mode
 
 logger = logging.getLogger(__name__)
 
+#: The host's own no to a backend question that nobody answers. ``approved`` tells it from a typed "reject".
+REFUSED_ANSWER = Answer(values=("reject",), approved=False)
+
 # The bounds the JiuwenSwarm Slack channel applies to the same state.
 MAX_QUEUED_KEYS = 64
 MAX_QUEUED_PER_KEY = 8
@@ -2491,7 +2494,7 @@ class ConversationHost(SessionRuns, ScheduledTurns, HostCommands, EventAdmission
         self._question_timeouts.pop(key, None)
         await self._withdraw_question(turn, question_id)
         try:
-            await self._backend.answer(turn.conversation, question_id, Answer(values=("reject",)))
+            await self._backend.answer(turn.conversation, question_id, REFUSED_ANSWER)
         except Exception:
             logger.exception("%s could not reject expired scheduled question: conversation=%s", turn.inbound.platform, turn.conversation)
             turn.question_error = "The backend cannot be told no."
@@ -2515,7 +2518,7 @@ class ConversationHost(SessionRuns, ScheduledTurns, HostCommands, EventAdmission
             if not self._supports(OP_ANSWER):
                 raise _QuestionCannotReject
             if schedule.questions == "refuse":
-                await self._backend.answer(turn.conversation, question.id, Answer(values=("reject",)))
+                await self._backend.answer(turn.conversation, question.id, REFUSED_ANSWER)
                 return
         if self._questions.get(asked) is turn:
             # A backend re-yields its open questions after a reconnect, so the platform is not asked twice.
@@ -2529,7 +2532,7 @@ class ConversationHost(SessionRuns, ScheduledTurns, HostCommands, EventAdmission
             if dropped_turn.session_run is not None:
                 if not self._supports(OP_ANSWER):
                     raise _QuestionCannotReject
-                await self._backend.answer(dropped_turn.conversation, dropped[1], Answer(values=("reject",)))
+                await self._backend.answer(dropped_turn.conversation, dropped[1], REFUSED_ANSWER)
         self._questions[asked] = turn
         try:
             await self._ask_where_it_came_from(turn.inbound, question)

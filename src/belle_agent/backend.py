@@ -174,7 +174,11 @@ class Question:
 
 @dataclass(frozen=True)
 class Answer:
-    """A person's answer: the options or text given, or an approval verdict."""
+    """A person's answer: the options or text given, or an approval verdict.
+
+    ``approved=False`` on a question that is not an approval is the host's no, which no person typed: a run
+    that refuses questions, a question that expired, and a question that a newer one pushed out get it.
+    """
 
     values: tuple[str, ...] = ()
     approved: bool | None = None
