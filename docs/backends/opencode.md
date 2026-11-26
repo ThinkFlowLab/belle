@@ -153,8 +153,9 @@ PNG, JPEG, GIF, WebP and PDF media, and Belle passes only those types to a
 model whose input includes them. Belle refuses media of any other type, and
 the refusal names the types that it accepts.
 
-The backend supports per-turn model and tool selection, required skills,
-available and unavailable skills, questions, approvals, and interruption. A
+The backend supports per-turn model, expert and tool selection, required
+skills, available and unavailable skills and subagents, questions, approvals,
+steered messages, and interruption. A
 question that the platform cannot show, such as one with more options than
 the platform shows, is cancelled with the reason, and the model reads it as
 the result of its question tool. An approval that cannot be shown is
@@ -165,6 +166,27 @@ turn, and OpenCode refuses a call that loads it. The [scope guide](../scopes.md)
 the shared rules. A setting that the OpenCode backend cannot apply produces a
 warning at startup. The [feature matrix](../feature-matrix.md#harnesses)
 compares the harnesses.
+
+## Experts and subagents
+
+An expert is an OpenCode agent that can run a session: an agent of mode
+`primary` or `all` that is not hidden. `/belle experts list` lists them, the
+default agent first. `agent.expert` makes the session run on that agent for
+the turn. A turn whose scope names no expert runs on OpenCode's default agent.
+OpenCode keeps the agent of a session for its later turns, so Belle switches
+the session back. Belle fails a turn whose expert OpenCode does not list
+before it changes the session, and the failure names the experts that
+OpenCode lists.
+
+A subagent is an agent of mode `subagent` or `all` that is not hidden.
+`/belle subagents list` lists them. `agent.subagents` becomes session
+permissions on the `subagent` action: OpenCode refuses a call to a subagent
+that the list does not name, and the model reads `Permission denied:
+subagent`. The description of the `subagent` tool still lists every subagent.
+A level on `subagent` in `permissions.tools` also applies to each listed
+subagent. Belle refuses `/belle subagents use`. OpenCode keeps the `agents`
+of a prompt with the message, but does not give them to the model, so a
+prompt cannot make the model delegate.
 
 ## Messages during a turn
 

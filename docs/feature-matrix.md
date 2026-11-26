@@ -103,8 +103,8 @@ OpenCode v2, Docker Agent and ACP are experimental.
 | Detached session run after a Belle restart | No (24) | Recovered | Interrupted (26) | Not tested |
 | Chat turn after a Belle restart | No (27) | Delivered (28) | Interrupted (26) | Interrupted (33) |
 | Idle expiry of attached sessions | No (29) | Yes | Yes | No (34) |
-| Subagents | Yes | No (10) | Partial (11) | No |
-| Experts | Yes | No | Yes (12) | No |
+| Subagents | Yes | Partial (10) | Partial (11) | No |
+| Experts | Yes | Yes (38) | Yes (12) | No |
 | Skills scopes | Yes | Yes (13) | Partial (14) | No |
 | Model selection | Yes | Yes | Yes (15) | No |
 | Task models | Yes (16) | Yes | Yes | Yes |
@@ -121,7 +121,7 @@ OpenCode v2, Docker Agent and ACP are experimental.
 7. OpenCode's own `question` tool. Belle asks the questions of one call one at a time, and replies to OpenCode once a person answered all of them. Belle refuses a question that takes more than one option. See [Questions](backends/opencode.md#questions).
 8. Docker Agent's `user_prompt` tool, with free text or one choice. Belle refuses a schema that asks for more. See [Questions from the model](backends/docker-agent.md#questions-from-the-model).
 9. A job delivers to Slack. A job cannot target Mattermost or Matrix. Belle refuses such a job, and a heartbeat follow-up asked for in a Mattermost or Matrix turn. See [JiuwenSwarm limits](integrations/jiuwenswarm.md#limits).
-10. OpenCode does not apply `agent.subagents`, and Belle warns at start. Belle refuses `/belle subagents use`. `deny_tools` can remove OpenCode's own `subagent` tool. See [Tool access](backends/opencode.md#tool-access).
+10. `agent.subagents` applies: OpenCode refuses a call to a subagent that the scope does not allow, but the model still sees it listed. Belle refuses `/belle subagents use`. `deny_tools` can remove OpenCode's own `subagent` tool. See [Experts and subagents](backends/opencode.md#experts-and-subagents).
 11. `agent.subagents` applies: Belle refuses a call to a subagent that the scope does not allow, but the model still sees it listed. Belle refuses `/belle subagents use`. The shipped agent YAML declares no subagent. See [Agents and models](backends/docker-agent.md#agents-and-models).
 12. Where the agent YAML declares experts. The shipped agent YAML declares none. See [Agents and models](backends/docker-agent.md#agents-and-models).
 13. A skill that the scope does not allow is not in the model's skill list for that turn. See [Tool access](backends/opencode.md#tool-access).
@@ -149,3 +149,4 @@ OpenCode v2, Docker Agent and ACP are experimental.
 35. A stop sends `session/cancel`. See [Turns](backends/acp.md#turns).
 36. Belle checked it against a scripted ACP agent only. After a Belle restart, a continuation needs an agent that advertises `session/resume` or `session/load`. See [Restarts](backends/acp.md#restarts). On a shared connection, a continuation also fails after a stop that the agent did not answer in time. See [Turns](backends/acp.md#turns).
 37. Under `delivery.mid_turn: steer`. See [Messages during a turn](backends/opencode.md#messages-during-a-turn).
+38. An OpenCode agent that can run a session, such as `build` or `plan`. See [Experts and subagents](backends/opencode.md#experts-and-subagents).

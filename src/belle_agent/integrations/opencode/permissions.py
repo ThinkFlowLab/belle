@@ -104,11 +104,22 @@ TOOL_LEVELS: Mapping[str, frozenset[str]] = {
 }
 
 
+def _only(action: str, names: Collection[str] | None, effects: Mapping[str, str]) -> list[dict[str, str]]:
+    """Deny every resource of ``action``, then give each of ``names`` the level of the action, or ``allow``."""
+    if names is None:
+        return []
+    listed = effects.get(action, EFFECT_ALLOW)
+    return [{"action": action, "resource": "*", "effect": EFFECT_DENY}] + [
+        {"action": action, "resource": name, "effect": listed} for name in sorted(names)
+    ]
+
+
 def permission_rules(
     tools: Mapping[str, str],
     advertised: Callable[[str], str | None],
     skills_available: Collection[str] | None = None,
     skills_unavailable: Iterable[str] = (),
+    subagents_available: Collection[str] | None = None,
 ) -> list[dict[str, str]]:
     """Write a scope's tool levels as a session ruleset, one rule per action.
 
@@ -129,7 +140,8 @@ def permission_rules(
     on the ``skill`` action, then gives each listed skill the level of
     ``skill`` itself, or ``allow``. Then each name in ``skills_unavailable``
     gets a ``deny`` rule for that skill alone. So a skill is usable where
-    ``capability_catalog.scope_allows`` allows it.
+    ``capability_catalog.scope_allows`` allows it. A ``subagents_available`` list
+    does the same on the ``subagent`` action, whose resource is the subagent's id.
     """
     effects: dict[str, str] = {}
     for name, level in tools.items():
@@ -141,9 +153,7 @@ def permission_rules(
             effects[action] = effect
     rules = [{"action": action, "resource": "*", "effect": effect} for action, effect in effects.items()]
     skill = BUILTIN_ACTIONS["skill"]
-    if skills_available is not None:
-        listed = effects.get(skill, EFFECT_ALLOW)
-        rules.append({"action": skill, "resource": "*", "effect": EFFECT_DENY})
-        rules += [{"action": skill, "resource": name, "effect": listed} for name in sorted(skills_available)]
+    rules += _only(skill, skills_available, effects)
     rules += [{"action": skill, "resource": name, "effect": EFFECT_DENY} for name in sorted(skills_unavailable)]
+    rules += _only("subagent", subagents_available, effects)
     return rules + [{"action": name, "resource": "*", "effect": EFFECT_DENY} for name in sorted(OUT_OF_TURN)]

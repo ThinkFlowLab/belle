@@ -131,6 +131,9 @@ class FakeOpenCode:
         self.inbox_status = 204
         #: A steered prompt that fails with ``steer_status`` is in the inbox all the same, as when only its answer is lost.
         self.admit_failed_steers = False
+        #: What GET /api/agent lists, its default first, and the session id to the agent it was switched to.
+        self.agents: list[dict] = [{"id": "build", "mode": "primary", "hidden": False}]
+        self.agent_of: dict[str, str] = {}
         #: Session id to the model it was last switched to. A session that never switched reports none.
         self.models: dict[str, dict] = {}
         self.unmounts = 0
@@ -235,7 +238,10 @@ class FakeOpenCode:
         if path == "/api/session":
             self.sessions.setdefault(body["id"], body.get("metadata") or {})
             model = {"model": self.models[body["id"]]} if body["id"] in self.models else {}
-            return httpx.Response(200, json={"data": {"id": body["id"], "cost": 2.0, **model}})
+            agent = {"agent": self.agent_of[body["id"]]} if body["id"] in self.agent_of else {}
+            return httpx.Response(200, json={"data": {"id": body["id"], "cost": 2.0, **model, **agent}})
+        if path == "/api/agent":
+            return httpx.Response(200, json={"data": self.agents})
         if path == "/api/session/active":
             return httpx.Response(200, json={"data": {session: {"type": "running"} for session in self.running}})
         if "/instructions/entries/" in path:
@@ -277,6 +283,9 @@ class FakeOpenCode:
             self.permission_replies.append((path.split("/")[5], (body or {}).get("decision")))
             if "message" in (body or {}):
                 self.permission_messages.append((path.split("/")[5], body["message"]))
+            return httpx.Response(204)
+        if path.endswith("/agent") and request.method == "POST":
+            self.agent_of[session] = body["agent"]
             return httpx.Response(204)
         if path.endswith("/model") and request.method == "POST":
             self.models[session] = body["model"]
@@ -899,7 +908,8 @@ async def test_ids_are_derived_so_a_restart_finds_the_same_session():
 async def test_a_turns_system_additions_become_the_sessions_instruction_entry(opencode, backend):
     entry = f"/api/experimental/session/{C1}/instructions/entries/belle"
     assert backend.capabilities().scope_fields == {
-        "system_additions", "tools", "skills_required", "skills_available", "skills_unavailable", "model"
+        "system_additions", "tools", "skills_required", "skills_available", "skills_unavailable", "model",
+        "expert", "subagents_available",
     }
 
     stream = await _accepted(backend, scope=TurnScope(system_additions=("Answer in French.", "Post with the tool.")))
@@ -920,7 +930,7 @@ async def test_a_turns_system_additions_become_the_sessions_instruction_entry(op
     assert calls[0][2] == {"value": "Answer in French.\n\nPost with the tool."}
 
 
-async def test_the_host_warns_for_what_the_adapter_does_not_apply_and_not_for_the_prompt_additions(
+async def test_the_host_does_not_warn_for_the_agent_settings_and_prompt_additions_the_adapter_applies(
     opencode, tmp_path, caplog
 ):
     path = tmp_path / "config.yaml"
@@ -930,7 +940,7 @@ platforms: {loopback: {enabled: true}}
 scopes:
   - match: {channel: loopback}
     delivery: {mode: [all], reply: optional, prompt: Answer in French.}
-    agent: {model_name: small-model, expert: translator}
+    agent: {model_name: small-model, expert: translator, subagents: [explore]}
 """,
         encoding="utf-8",
     )
@@ -941,9 +951,8 @@ scopes:
         await host.start()
     await host.stop()
 
-    # model_name and the prompt additions are applied now; only expert is not, so only it is warned about.
     warned = [record.getMessage() for record in caplog.records if "enforces nothing" in record.getMessage()]
-    assert len(warned) == 1 and "agent.expert is set" in warned[0], warned
+    assert warned == []
 
 
 async def test_a_second_prompt_for_a_running_conversation_is_refused_not_joined(opencode, backend):
@@ -1611,6 +1620,46 @@ async def test_each_unavailable_skill_is_denied_after_the_tool_levels(opencode):
         {"action": "skill", "resource": "*", "effect": "ask"},
         {"action": "skill", "resource": "slack-app-home", "effect": "deny"},
         {"action": "skill", "resource": "slack-daily-update", "effect": "deny"},
+        *ALWAYS,
+    ]
+
+
+async def test_a_turns_expert_runs_it_and_a_turn_without_one_runs_on_the_default_agent(opencode, backend):
+    opencode.agents += [{"id": "plan", "mode": "primary", "hidden": False}, {"id": "both", "mode": "all", "hidden": False}]
+
+    for expert in ("plan", "plan", "", ""):
+        stream = await _accepted(backend, scope=TurnScope(expert=expert))
+        opencode.emit("session.execution.succeeded")
+        assert (await _rest(stream))[-1].kind == EVENT_SUCCEEDED
+
+    # One switch to the expert, one back to the default, and none while the session already runs on the agent.
+    assert [body for method, path, body in opencode.calls if path == f"/api/session/{C1}/agent"] == [
+        {"agent": "plan"}, {"agent": "build"},
+    ]
+
+
+async def test_a_turn_whose_expert_opencode_does_not_list_fails_before_its_session_is_touched(opencode, backend):
+    opencode.agents.append({"id": "general", "mode": "subagent", "hidden": False})
+    stream = backend.run_turn(TurnRequest(conversation="c1", request_id="r1", text="hi", scope=TurnScope(expert="general")))
+
+    (ended,) = await _rest(stream)
+
+    assert ended.kind == EVENT_FAILED and "OpenCode has no expert 'general'. Its experts are: build" in ended.text
+    # The expert is checked before anything else: no session is made, and nothing of it changes.
+    assert "/api/session" not in opencode.paths() and C1 not in opencode.permission_rules and C1 not in opencode.agent_of
+
+
+async def test_available_subagents_are_allowed_after_a_deny_of_every_subagent(opencode, backend):
+    scope = TurnScope(tools={"subagent": "ask"}, subagents_available=frozenset({"explore"}))
+
+    stream = await _accepted(backend, scope=scope)
+    opencode.emit("session.execution.succeeded")
+    await _rest(stream)
+
+    assert opencode.permission_rules[C1] == [
+        {"action": "subagent", "resource": "*", "effect": "ask"},
+        {"action": "subagent", "resource": "*", "effect": "deny"},
+        {"action": "subagent", "resource": "explore", "effect": "ask"},
         *ALWAYS,
     ]
 

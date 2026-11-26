@@ -1,4 +1,4 @@
-"""What the adapter lists: OpenCode's models, skills and subagents.
+"""What the adapter lists and applies: OpenCode's models, skills, experts and subagents.
 
 The first check runs on a scripted wire, with no container. The others read
 the catalog of the OpenCode container, with and without the relay plugin.
@@ -7,6 +7,7 @@ the catalog of the OpenCode container, with and without the relay plugin.
 import httpx
 import pytest
 from conformance_kit import worlds
+from drive import Client
 from slack_kit import SlackKit
 from slack_transport import TEAM
 
@@ -15,6 +16,7 @@ from belle_agent.host import OUTCOME_FAILED, OUTCOME_POSTED_FINAL
 from belle_agent.integrations.opencode import OpenCodeBackend
 from belle_agent.integrations.opencode.pin import OPENCODE_VERSION
 from belle_agent.platforms.slack.scope_policy import DEFAULT_COMMAND_NAME, command_token
+from standin import call, said
 
 COMMAND = command_token(DEFAULT_COMMAND_NAME)
 # Two scopes that each name a model the harness configuration does not: one of its provider, one of another.
@@ -49,6 +51,7 @@ ANSWERS = {
         {"id": "explore", "mode": "subagent", "hidden": False},
         {"id": "internal", "mode": "subagent", "hidden": True},
         {"id": "title", "mode": "primary", "hidden": True},
+        {"id": "review", "mode": "all", "hidden": False},
     ],
 }
 
@@ -75,8 +78,8 @@ async def test_the_catalog_keeps_names_and_drops_what_holds_the_provider_key():
         {"name": "opencode", "description": "About OpenCode itself.", "installed": True},
         {"name": "chat-digest", "description": "", "installed": True},
     )
-    # A subagent is an agent the model can delegate to: of that mode, and not hidden.
-    assert catalog.subagents == ("general", "explore") and catalog.experts == ()
+    # A subagent is an agent the model can delegate to, and an expert one that runs a session. Neither is hidden.
+    assert catalog.subagents == ("general", "explore", "review") and catalog.experts == ("build", "review")
     assert KEY not in repr(catalog)
     assert asked == ["/api/model/default", "/api/model", "/api/model", "/api/skill", "/api/agent"]
 
@@ -85,12 +88,11 @@ def test_the_adapter_declares_the_catalog_it_lists_and_the_version_it_is_pinned_
     capabilities = OpenCodeBackend("http://opencode.invalid:4096", "synthetic").capabilities()
 
     assert OP_CATALOG in capabilities.operations
-    assert capabilities.catalog == {CATALOG_MODELS, CATALOG_SKILLS, CATALOG_SUBAGENTS}
-    assert CATALOG_EXPERTS not in capabilities.catalog
+    assert capabilities.catalog == {CATALOG_MODELS, CATALOG_SKILLS, CATALOG_EXPERTS, CATALOG_SUBAGENTS}
     assert capabilities.version == OPENCODE_VERSION
     # What a command that needs one of these says is not provided here.
-    assert not {"expert", "subagents_available", "subagent_required"} & capabilities.scope_fields
-    assert {"skills_required", "skills_available", "skills_unavailable", "model"} <= capabilities.scope_fields
+    assert "subagent_required" not in capabilities.scope_fields
+    assert {"skills_required", "skills_available", "skills_unavailable", "model", "expert", "subagents_available"} <= capabilities.scope_fields
 
 
 @pytest.mark.adapter
@@ -106,7 +108,43 @@ async def test_opencode_lists_its_models_the_packaged_skills_and_its_subagents(w
     assert all(skill["installed"] is True for skill in catalog.skills)
     assert {"general", "explore"} <= set(catalog.subagents)
     assert not {"build", "plan", "title", "summary", "compaction"} & set(catalog.subagents)
-    assert catalog.experts == ()
+    # The default agent comes first. A hidden agent and a subagent are no experts.
+    assert catalog.experts[0] == "build" and "plan" in catalog.experts
+    assert not {"general", "explore", "title", "summary", "compaction"} & set(catalog.experts)
+
+
+SCOPED_AGENTS = """
+scopes:
+  - match: {channel: loopback}
+    delivery: {mode: [all]}
+  - match: {channel: loopback, chat: C1}
+    agent: {expert: plan, subagents: [explore]}
+"""
+
+
+def _session(model, text: str) -> str:
+    return next(entry["session"] for entry in reversed(model.log) if said(entry["body"], "user")[-1:] == [text])
+
+
+@pytest.mark.adapter
+async def test_a_scopes_expert_runs_its_turns_and_its_subagents_are_the_only_ones_the_model_may_start(build_world, model):
+    world = await build_world(SCOPED_AGENTS)
+    text = "go " + call("subagent", agent="general", description="d", prompt="SAY=no")
+    listed = "go " + call("subagent", agent="explore", description="e", prompt="SAY=yes")
+
+    await world.send(world.message(text, conversation="C1"))
+    await world.send(world.message(listed, conversation="C1", thread="other"))
+    await world.send(world.message("SAY=two", conversation="C2"))
+
+    assert world.outcomes() == [OUTCOME_POSTED_FINAL] * 3
+    # OpenCode refuses the call to a subagent the scope does not list, and the model reads why.
+    (result,) = said(model.requests(_session(model, text))[-1], "tool")
+    assert "Permission denied: subagent" in result
+    results = [result for request in model.requests(_session(model, listed)) for result in said(request, "tool")]
+    assert results and not any("Permission denied" in result for result in results)
+    assert Client().api("GET", f"/api/session/{_session(model, text)}").get("agent") == "plan"
+    # A conversation that names no expert runs on the default agent.
+    assert Client().api("GET", f"/api/session/{_session(model, 'SAY=two')}").get("agent") in (None, "build")
 
 
 

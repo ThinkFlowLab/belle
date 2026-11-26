@@ -14,6 +14,7 @@ import httpx
 
 from belle_agent.backend import (
     APPROVAL,
+    CATALOG_EXPERTS,
     CATALOG_MODELS,
     CATALOG_SKILLS,
     CATALOG_SUBAGENTS,
@@ -754,6 +755,11 @@ def attachments(files: Sequence[Mapping[str, Any]]) -> list[dict[str, str]]:
     return shaped
 
 
+def _experts(agents: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
+    """The agents that can run a session, in OpenCode's order: its default agent comes first."""
+    return tuple(str(agent["id"]) for agent in agents if agent["id"] and agent["mode"] != "subagent" and not agent["hidden"])
+
+
 def _lists_relay(plugins: Sequence[Mapping[str, Any]]) -> bool:
     """Whether a plugin list holds the relay plugin: a source of its id that is not one of OpenCode's own."""
     return any(
@@ -836,14 +842,15 @@ class OpenCodeBackend:
             operations=frozenset({OP_CANCEL, OP_ACTIVE, OP_RECOVER, OP_PENDING, OP_ASK, OP_ANSWER, OP_REFUSE_QUESTION,
                                   OP_CATALOG, OP_CONTINUE, OP_FORGET, OP_PEEK_HISTORY, OP_HEALTH, OP_STEER}),
             scope_fields=frozenset(
-                {"system_additions", "tools", "skills_required", "skills_available", "skills_unavailable", "model"}
+                {"system_additions", "tools", "skills_required", "skills_available", "skills_unavailable", "model",
+                 "expert", "subagents_available"}
             ),
             tool_levels=TOOL_LEVELS,
             tool_name_format=f"{MCP_SERVER}_{{name}}",
             reports=PROGRESS_EVENTS,
             tool_content=_content_types(self._wire.model_input),
             tool_content_by_model=self._model_content,
-            catalog=frozenset({CATALOG_MODELS, CATALOG_SKILLS, CATALOG_SUBAGENTS}),
+            catalog=frozenset({CATALOG_MODELS, CATALOG_SKILLS, CATALOG_EXPERTS, CATALOG_SUBAGENTS}),
             version=OPENCODE_VERSION,
         )
 
@@ -1215,7 +1222,8 @@ class OpenCodeBackend:
         tools = scope.tools
         levels = {name: LEVEL_DENY for name in self._deny_tools if name not in tools}
         rules = permission_rules(
-            {**levels, **tools}, self._advertised, scope.skills_available, scope.skills_unavailable
+            {**levels, **tools}, self._advertised, scope.skills_available, scope.skills_unavailable,
+            scope.subagents_available,
         )
         await self._wire.call("PATCH", f"/api/session/{session}", {"permissions": rules})
 
@@ -1235,6 +1243,27 @@ class OpenCodeBackend:
         if wanted != serving:
             body = {"model": {"providerID": wanted[0], "id": wanted[1]}}
             await self._wire.call("POST", f"/api/session/{session}/model", body)
+
+    async def _experts(self) -> tuple[str, ...]:
+        return _experts(await self._wire.listing("/api/agent", "id", "mode", "hidden"))
+
+    async def _check_expert(self, expert: str) -> None:
+        """Refuse an expert that OpenCode does not list. OpenCode takes any id in a switch, and fails the next request."""
+        experts = await self._experts()
+        if expert not in experts:
+            raise OpenCodeError(f"OpenCode has no expert {expert!r}. Its experts are: {', '.join(experts) or 'none'}")
+
+    async def _act_as(self, session: str, current: str, expert: str) -> None:
+        """Make the session's agent the turn's expert, or OpenCode's default agent when the scope names none.
+
+        OpenCode keeps a switch for every later turn of the session, as for the model. ``current`` is the agent
+        that the session stores, which is nothing until its first switch.
+        """
+        if not expert and current:
+            experts = await self._experts()
+            expert = experts[0] if experts else ""
+        if expert and expert != current:
+            await self._wire.call("POST", f"/api/session/{session}/agent", {"agent": expert})
 
     async def _ran(self, session: str, prompt_id: str) -> bool:
         """Say whether the session already holds this prompt.
@@ -1457,6 +1486,8 @@ class OpenCodeBackend:
         try:
             if request.files:
                 prompt["files"] = attachments(request.files)
+            if request.scope.expert:
+                await self._check_expert(request.scope.expert)
             await self._subscribed.wait()
             if request.existing_conversation_only:
                 created = await self._existing(request.conversation)
@@ -1483,6 +1514,7 @@ class OpenCodeBackend:
                 if request.scope.skills_required:
                     prompt["skills"] = [{"id": name} for name in request.scope.skills_required]
                 await self._serve_with(session, (created or {}).get("model") or {}, request.scope.model)
+                await self._act_as(session, str((created or {}).get("agent") or ""), request.scope.expert)
                 await self._ensure_mount()
                 stop = turn.posted = True
                 await self._wire.call("POST", f"/api/session/{session}/prompt", prompt)
@@ -1906,14 +1938,15 @@ class OpenCodeBackend:
         return Recovery(RECOVERY_TERMINAL, result)
 
     async def catalog(self) -> Catalog:
-        """List what OpenCode offers: its enabled models, its skills and its subagents.
+        """List what OpenCode offers: its enabled models, its skills, its experts and its subagents.
 
         A model is named ``provider/id``, which is the name a scope gives and
         ``_serve_with`` reads. The default model comes first. A skill is named
         by its id, which is what a prompt attaches. The skills are those of
         OpenCode's own skill directories, its two built-in ones included. A
-        subagent is an agent of mode ``subagent`` that is not hidden: the model
-        reaches one through the ``subagent`` tool, as a child session.
+        subagent is an agent of mode ``subagent`` or ``all`` that is not hidden:
+        the model reaches one through the ``subagent`` tool, as a child session.
+        An expert is an agent that can run a session, and the default one comes first.
         """
         default = "/".join(self._default_model) if all(self._default_model) else ""
         models = [
@@ -1929,7 +1962,8 @@ class OpenCodeBackend:
                 for skill in skills
                 if skill["id"]
             ),
-            subagents=tuple(str(agent["id"]) for agent in agents if agent["id"] and agent["mode"] == "subagent" and not agent["hidden"]),
+            experts=_experts(agents),
+            subagents=tuple(str(agent["id"]) for agent in agents if agent["id"] and agent["mode"] != "primary" and not agent["hidden"]),
             models=ConfiguredModels(names=tuple(dict.fromkeys(([default] if default else []) + models))),
         )
 

@@ -217,7 +217,6 @@ async def test_who_may_not_use_the_command_is_told_so_and_nothing_else_happens(b
 # What each subcommand answers on the OpenCode adapter's declaration. The README table is this list.
 ON_OPENCODE_UNPROVIDED = {
     "subagents use": "the opencode backend cannot require a subagent of one turn",
-    "experts list": "the opencode backend lists no experts",
 }
 
 
@@ -233,13 +232,11 @@ async def test_a_subcommand_the_backend_cannot_serve_says_so_and_asks_it_nothing
         if reason:
             assert line.endswith(f"_Not available here: {reason}._")
 
-    experts = await _slash(world, "experts list")
     delegated = await _slash(world, "subagents use researcher find the report")
-    assert experts.texts == [f"`{COMMAND} experts list` is not available here: the opencode backend lists no experts."]
     assert delegated.texts == [
         f"`{COMMAND} subagents use <name> <task>` is not available here: the opencode backend cannot require a subagent of one turn."
     ]
-    # Nothing was posted for either, and no turn started.
+    # Nothing was posted, and no turn started.
     assert world.requests == [] and world.platform.web.sent == []
 
     # Control: what the backend does provide is answered from its catalog.
@@ -262,25 +259,21 @@ async def test_a_backend_that_declares_nothing_leaves_the_host_commands_working(
 
 
 @pytest.mark.opencode
-async def test_a_list_says_when_the_backend_does_not_hold_a_turn_to_it(build_world):
+async def test_a_list_follows_the_scope_and_says_nothing_more_where_the_backend_applies_it(build_world):
     restricted = ANSWER_EVERYTHING + f"""  - match: {{channel: slack, chat: {ROOM}}}
     agent: {{skills: {{available: [notes]}}, subagents: [writer]}}
 """
     applied = await build_world(restricted)
-    unapplied = await build_world(restricted, capabilities=await _opencode_declares())
+    opencode = await build_world(restricted, capabilities=await _opencode_declares())
 
     held = (await _slash(applied, "skills list")).texts[-1]
-    told = (await _slash(unapplied, "skills list")).texts[-1]
-    subagents = (await _slash(unapplied, "subagents list")).texts[-1]
+    told = (await _slash(opencode, "skills list")).texts[-1]
+    subagents = (await _slash(opencode, "subagents list")).texts[-1]
 
-    # The command follows the scope either way. Where the backend does not, the list says so.
+    # The command follows the scope. OpenCode applies the skill and the subagent lists, so nothing is added to them.
     assert "`notes`" in held and "`digest`" not in held and "does not apply" not in held
-    # OpenCode applies the skill list, so nothing is added to it.
     assert "`notes`" in told and "`digest`" not in told and "does not apply" not in told
-    assert "`writer`" in subagents and "`researcher`" not in subagents
-    assert "`agent.subagents`, which the opencode backend does not apply to a turn" in subagents
-    # Where no scope restricts, the list is the whole catalog and there is nothing to add.
-    assert "does not apply" not in (await _slash(unapplied, "subagents list", channel=DIRECT)).texts[-1]
+    assert "`writer`" in subagents and "`researcher`" not in subagents and "does not apply" not in subagents
 
 
 # ── status ───────────────────────────────────────────────────────────────
