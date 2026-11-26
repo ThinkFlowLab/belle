@@ -151,4 +151,5 @@ def settle_run_scope(
         subagents_available=subagents,
         model=_choose("model", job.model, origin, target),
         system_additions=tuple(system_additions),
+        refuse_questions=refuse_questions,
     )

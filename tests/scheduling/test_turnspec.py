@@ -54,7 +54,9 @@ def test_scope_takes_strictest_tools_and_refuses_questions() -> None:
     target = limits(TARGET, tools={"write": "deny", "read": "ask"})
     scope = settle_run_scope(JobTurn(), origin, target, refuse_questions=True)
     assert scope.tools == {"write": "deny", "read": "deny"}
+    assert scope.refuse_questions
     assert not scope.withhold_final
+    assert not settle_run_scope(JobTurn(), origin, target, refuse_questions=False).refuse_questions
 
 
 def test_job_skill_outside_target_is_refused() -> None:

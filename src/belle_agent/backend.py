@@ -127,6 +127,9 @@ class TurnScope:
     system_additions: tuple[str, ...] = ()
     #: The final text reaches no reader. A backend may keep it out of storage.
     withhold_final: bool = False
+    #: Nobody answers the turn's questions: the host refuses each one. A backend that applies it refuses a
+    #: question before it is asked, and tells the model why.
+    refuse_questions: bool = False
 
 
 #: The names a backend lists in ``BackendCapabilities.scope_fields``.
