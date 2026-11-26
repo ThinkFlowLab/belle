@@ -479,8 +479,43 @@ async def test_an_unrenderable_declaration_posts_the_unanswerable_notice(
 
     assert "cannot render the inputs" in caplog.text
     assert "blocks" not in client.posts[0]
-    assert "Slack cannot show the inputs of this question: unknown question input type" in client.posts[0]["text"]
+    assert "Slack cannot show the inputs of the question below" in client.posts[0]["text"]
     assert channel._pending_questions == {}
+
+
+@pytest.mark.asyncio
+async def test_the_unanswerable_notice_keeps_a_long_question_whole() -> None:
+    channel, client = _channel()
+    question = " ".join(f"word{index}" for index in range(10000))
+
+    await channel.send(_question_message(question=question, inputs=[{"type": "colour_wheel"}]))
+
+    shown = " ".join(post["text"] for post in client.posts)
+    assert all(f"word{index}" in shown for index in range(10000))
+    assert "…" not in shown
+    assert "Slack cannot show the inputs of the question below" in client.posts[0]["text"]
+
+
+@pytest.mark.asyncio
+async def test_the_unanswerable_reason_reaches_the_thread_when_a_part_of_the_question_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    channel, client = _channel()
+    posted = client.chat_postMessage
+
+    async def refuse_the_last_part(**kwargs: Any) -> dict[str, str]:
+        if len(client.posts) == 2:
+            raise RuntimeError("channel_not_found")
+        return await posted(**kwargs)
+
+    client.chat_postMessage = refuse_the_last_part
+    question = " ".join(f"word{index}" for index in range(10000))
+
+    with caplog.at_level(logging.WARNING, logger=slack_connect.logger.name):
+        await channel.send(_question_message(question=question, inputs=[{"type": "colour_wheel"}]))
+
+    assert "Slack cannot show the inputs of the question below" in client.posts[0]["text"]
+    assert "Slack failed to post the question of an unanswerable question" in caplog.text
 
 
 # ---------------------------------------------------------------------------
@@ -783,10 +818,11 @@ async def test_withdrawal_takes_the_pickers_away_exactly_as_it_takes_buttons() -
     assert entry.withdrawn_at is not None
     rewrite = client.updates[-1]
     assert rewrite["ts"] == "1710000099.000001"
-    # No blocks at all: no pickers, no submit, and the question survives as text.
-    assert rewrite["blocks"] == []
+    # No pickers and no submit, and the question survives in its blocks.
+    assert {block["type"] for block in rewrite["blocks"]}.isdisjoint({"input", "actions"})
+    assert "When should the digest run?" in json.dumps(rewrite["blocks"])
+    assert "no longer waiting for an answer" in rewrite["blocks"][-1]["elements"][0]["text"]
     assert "no longer waiting for an answer" in rewrite["text"]
-    assert "When should the digest run?" in rewrite["text"]
 
 
 @pytest.mark.asyncio

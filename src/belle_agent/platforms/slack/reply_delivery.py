@@ -37,6 +37,7 @@ from belle_agent.platforms.slack.text import (
 )
 from belle_agent.platforms.slack.text import (
     fenced_regions_stripped,
+    fit_fallback,
     preferred_split_index,
     split_text,
 )
@@ -447,7 +448,9 @@ class SlackReplyDelivery:
         text = str(message.get("text") or "").strip()
         sent, _, error = await self._post_text(
             channel_id=channel_id,
-            text=_clamp(f"{text}\n\n{note}".strip(), _MAX_SLACK_TEXT_LENGTH),
+            text=fit_fallback(
+                f"{text}\n\n{note}".strip(), _MAX_SLACK_UPDATE_TEXT_LENGTH, in_blocks=bool(message.get("blocks"))
+            ),
             thread_ts="",
             update_ts=message_ts,
             blocks=blocks,

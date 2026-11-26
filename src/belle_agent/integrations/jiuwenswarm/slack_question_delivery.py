@@ -10,16 +10,20 @@ from jiuwenswarm.extensions.sdk.channel_runtime import RoutingTarget
 from jiuwenswarm.extensions.sdk.host_types import Message
 
 from belle_agent.integrations.jiuwenswarm.slack_inbound import _INTERRUPT_RESUME_SOURCES
+from belle_agent.platforms.slack import blocks as slack_blocks
 from belle_agent.platforms.slack import inputs as slack_inputs
 from belle_agent.platforms.slack import questions as slack_questions
 from belle_agent.platforms.slack.admission import SlackTurnInitiator
 from belle_agent.platforms.slack.delivery import SlackDeliveryError
 from belle_agent.platforms.slack.questions import QuestionPresenter
-from belle_agent.platforms.slack.text import MAX_SLACK_TEXT_LENGTH
+from belle_agent.platforms.slack.text import (
+    MAX_SLACK_TEXT_LENGTH,
+    MAX_SLACK_UPDATE_TEXT_LENGTH,
+    fit_fallback,
+    split_text,
+)
 
 logger = logging.getLogger("belle_agent.integrations.jiuwenswarm.slack_channel")
-_clamp = slack_inputs.clamp
-_MAX_SLACK_TEXT_LENGTH = MAX_SLACK_TEXT_LENGTH
 
 # The action ids are Slack's side of a question, so the platform package states them.
 _QUESTION_ACTION_ID_PREFIX = slack_questions.QUESTION_ACTION_ID_PREFIX
@@ -75,7 +79,10 @@ class _SlackPendingQuestion:
     inputs: list[slack_inputs.QuestionInput] = field(default_factory=list)
     channel_id: str = ""
     message_ts: str = ""
-    notification_text: str = ""
+    # The text of a withdrawn question, fitted to the chat.update limit.
+    withdrawal_text: str = ""
+    # The blocks Slack accepted, which a withdrawal keeps without their controls. A withdrawal clears them.
+    blocks: list[dict[str, Any]] = field(default_factory=list)
     # The turn ID survives an interrupt that changes the question request ID.
     turn_request_id: str = ""
     initiator: SlackTurnInitiator | None = None
@@ -121,7 +128,7 @@ class SlackQuestionMixin:
             )
             await self._post_unanswerable_notice(
                 msg, routing_target, request_id, source, question,
-                f"Slack cannot show the inputs of this question: {exc}.",
+                f"Slack cannot show the inputs of the question below: {exc}.",
             )
             return
 
@@ -134,7 +141,7 @@ class SlackQuestionMixin:
             )
             await self._post_unanswerable_notice(
                 msg, routing_target, request_id, source, question,
-                "This question needs a typed answer, which this channel cannot route back to the waiting task.",
+                "The question below needs a typed answer, which this channel cannot route back to the waiting task.",
             )
             return
 
@@ -150,16 +157,17 @@ class SlackQuestionMixin:
         except slack_questions.QuestionRenderError as exc:
             logger.warning("Slack cannot show a question: request_id=%s source=%s error=%s", request_id, source, exc)
             await self._post_unanswerable_notice(
-                msg, routing_target, request_id, source, question, f"Slack cannot show this question: {exc}."
+                msg, routing_target, request_id, source, question, f"Slack cannot show the question below: {exc}."
             )
             return
 
-        notification_text = _QUESTION_PRESENTER.fallback_text(question)
+        posted_blocks: list[dict[str, Any]] = []
         sent, message_ts, error = await self._post_question(
             messages,
             channel_id=channel_id,
             thread_ts=thread_ts,
             text_route=slack_questions.text_route(source, _INTERRUPT_RESUME_SOURCES),
+            posted_blocks=posted_blocks,
         )
         if not sent:
             raise SlackDeliveryError(error, channel_id=channel_id)
@@ -176,7 +184,11 @@ class SlackQuestionMixin:
                 inputs=inputs,
                 channel_id=channel_id,
                 message_ts=message_ts,
-                notification_text=notification_text,
+                withdrawal_text=fit_fallback(
+                    f"{messages[-1][0]}\n\n{_WITHDRAWN_QUESTION_NOTICE}", MAX_SLACK_UPDATE_TEXT_LENGTH,
+                    in_blocks=bool(posted_blocks),
+                ),
+                blocks=posted_blocks,
                 turn_request_id=str(msg.id or "").strip(),
                 initiator=initiator,
             )
@@ -219,28 +231,25 @@ class SlackQuestionMixin:
             )
             return
 
-        text = (
-            f"{_QUESTION_PRESENTER.fallback_text(question)}\n\n"
-            f"_{why} The task stays paused until it is answered elsewhere or times out._"
+        reason = f"_{why} The task stays paused until it is answered elsewhere or times out._"
+        text = _QUESTION_PRESENTER.fallback_text(question)
+        # A long question follows the reason, so that the reason reaches the thread if a part of the question fails.
+        first, rest = (
+            (f"{reason}\n\n{text}", []) if len(reason) + 2 + len(text) <= MAX_SLACK_TEXT_LENGTH else (reason, split_text(text))
         )
-        try:
-            sent, _, error = await self._post_text(
-                channel_id=channel_id,
-                text=text,
-                thread_ts=thread_ts,
-                chunk_index=1,
-                chunk_total=1,
-            )
-        except Exception as exc:  # noqa: BLE001
-            sent, error = False, str(exc)
-        if not sent:
-            logger.warning(
-                "Slack failed to report an unanswerable question: "
-                "request_id=%s source=%s error=%s",
-                request_id,
-                source,
-                error,
-            )
+        for what, chunks in (("reason", [first]), ("question", rest)):
+            if not chunks:
+                continue
+            try:
+                await self._post_chunks(chunks, channel_id=channel_id, thread_ts=thread_ts, block_request=False)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Slack failed to post the %s of an unanswerable question: request_id=%s source=%s error=%s",
+                    what,
+                    request_id,
+                    source,
+                    exc,
+                )
 
     async def _withdraw_questions_for_session(self, session_id: str) -> None:
         """Retire questions superseded by a new message."""
@@ -264,20 +273,22 @@ class SlackQuestionMixin:
             await self._strip_question_buttons(entry)
 
     async def _strip_question_buttons(self, pending: _SlackPendingQuestion) -> None:
-        """Remove a withdrawn question's buttons but retain its text."""
+        """Remove a withdrawn question's buttons but retain its text.
+
+        A question that Slack showed as text only gets the withdrawal notice in place of its answer route.
+        """
         if self._client is None or not pending.channel_id or not pending.message_ts:
             return
-        text = _clamp(
-            f"{pending.notification_text}\n\n{_WITHDRAWN_QUESTION_NOTICE}".strip(),
-            _MAX_SLACK_TEXT_LENGTH,
-        )
+        blocks = slack_questions.closed_blocks(pending.blocks, _WITHDRAWN_QUESTION_NOTICE) if pending.blocks else []
+        pending.blocks = []
         try:
             sent, _, error = await self._post_text(
                 channel_id=pending.channel_id,
-                text=text,
+                text=pending.withdrawal_text,
                 thread_ts="",
                 update_ts=pending.message_ts,
-                blocks=[],
+                blocks=blocks,
+                block_kind=slack_blocks.BLOCK_KIND_CHROME,
             )
         except Exception as exc:  # noqa: BLE001
             sent, error = False, str(exc)

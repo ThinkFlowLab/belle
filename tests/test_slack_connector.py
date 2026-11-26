@@ -698,6 +698,36 @@ async def test_a_click_on_a_question_that_no_longer_waits_takes_its_buttons_off(
     assert WITHDRAWN_QUESTION_NOTE in socket.web.payload("chat_update")["text"]
 
 
+@pytest.mark.parametrize("outcome", ["answered session=s1", "ignored:question-not-waiting"])
+async def test_closing_a_long_question_keeps_its_blocks_and_fits_the_edit_text(connected, outcome):
+    platform, socket, _ = await connected(outcome=outcome)
+    question = Question(id="perm-2", text="Allow rm? " + "x" * 6000, options=("approve", "reject"), kind=APPROVAL, tool="rm")
+    shown = await platform.ask(ROOM, ROOT, question)
+
+    await _click(socket, socket.web.payload("chat_postMessage"), shown, value="reject")
+
+    closed = socket.web.payload("chat_update")
+    assert len(closed["text"]) <= 4000
+    assert "cut from" in closed["text"]
+    assert not [block for block in closed["blocks"] if block["type"] == "actions"]
+    assert "x" * 6000 in "".join(block["text"]["text"] for block in closed["blocks"] if block["type"] == "section")
+
+
+async def test_the_text_of_each_message_of_a_long_question_holds_all_of_its_blocks(connected):
+    platform, socket, _ = await connected(outcome="answered session=s1")
+    text = "\n\n".join(f"part-{index}-" + "x" * 2900 for index in range(15))
+
+    await platform.ask(ROOM, ROOT, Question(id="perm-3", text=text, options=("approve", "reject"), kind=APPROVAL, tool="rm"))
+
+    posts = socket.web.payloads("chat_postMessage")
+    assert len(posts) == 2
+    sections = [block["text"]["text"] for post in posts for block in post["blocks"] if block["type"] == "section"]
+    assert [section for section in sections if section.startswith("part-")] == text.split("\n\n")
+    for post in posts:
+        assert len(post["text"]) <= 37500 and "cut from" not in post["text"]
+        assert all(block["text"]["text"] in post["text"] for block in post["blocks"] if block["type"] == "section")
+
+
 async def test_a_question_with_choices_is_answered_with_the_choice(connected):
     platform, socket, received = await connected(outcome="answered session=s1")
     shown = await platform.ask(ROOM, "", Question(id="form-1", text="Red or blue?", options=("Red", "Blue")))

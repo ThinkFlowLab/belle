@@ -272,3 +272,7 @@ def test_a_header_too_long_for_a_header_block_shows_whole_in_the_section() -> No
 
     assert all(block["type"] != "header" for block in blocks)
     _assert_whole(blocks, header, "Proceed?")
+
+
+def test_the_fallback_text_keeps_the_whole_question() -> None:
+    assert _presenter().fallback_text({"header": "Run", "question": "x" * 5000}) == "Run: " + "x" * 5000

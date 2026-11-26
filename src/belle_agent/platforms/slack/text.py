@@ -5,7 +5,9 @@ import re
 from belle_agent.text_split import split_text as split_long_text
 
 MAX_SLACK_TEXT_LENGTH = 38000
+# Slack's limit for the text of chat.postMessage.
 MAX_SLACK_POST_FALLBACK_LENGTH = 40000
+# Slack's limit for the text of chat.update.
 MAX_SLACK_UPDATE_TEXT_LENGTH = 4000
 
 _INLINE_CODE_OR_SLACK_TOKEN_RE = re.compile(r"(?P<code>(?P<ticks>`+)[^\n]*?(?P=ticks))|(?P<slack><[^>\n]+>)")
@@ -32,6 +34,18 @@ def clamp(text: str, limit: int) -> str:
     if limit == 1:
         return "…"
     return text[: limit - 1].rstrip() + "…"
+
+
+def fit_fallback(text: str, limit: int, *, in_blocks: bool) -> str:
+    """Fit the text of a message to a Slack limit, and give its full size when it is cut.
+
+    ``in_blocks`` says that the blocks of the message show all of the text.
+    """
+    if len(text) <= limit:
+        return text
+    where = " The blocks of this message show all of it." if in_blocks else ""
+    note = f"… (cut from {len(text)} characters to Slack's {limit}.{where})"
+    return text[: limit - len(note)].rstrip() + note
 
 
 def markdown_fence_closes(line: str, marker: str) -> bool:

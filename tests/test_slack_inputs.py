@@ -512,3 +512,27 @@ def test_impossible_composite_dates_and_times_are_reported(
     result = _read_datetime(date, time, zone)
     assert result.empty
     assert error in result.error
+
+
+def test_a_label_and_hint_up_to_slacks_limit_show_whole() -> None:
+    (block,) = _render("text", label="l" * 2000, hint="h" * 2000)
+
+    assert block["label"]["text"] == "l" * 2000
+    assert block["hint"]["text"] == "h" * 2000
+
+
+@pytest.mark.parametrize(
+    ("type_name", "field"), [("text", "label"), ("text", "hint"), ("datetime", "time_label")]
+)
+def test_a_label_or_hint_over_slacks_limit_is_refused_by_its_field(type_name: str, field: str) -> None:
+    declaration = _declare(type_name, **{field: "x" * 2001})
+
+    with pytest.raises(InputRenderError, match=rf"^inputs\[1\]\.{field} has 2001 characters\. .* at most 2000$"):
+        parse_inputs({"inputs": [_declare("text"), declaration]})
+
+
+def test_a_long_name_that_stands_for_the_label_is_refused_by_its_own_field() -> None:
+    declaration = {"type": "text", "name": "n" * 2001}
+
+    with pytest.raises(InputRenderError, match=r"^inputs\[0\]\.name has 2001 characters\."):
+        parse_inputs({"inputs": [declaration]})

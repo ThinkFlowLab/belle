@@ -451,8 +451,7 @@ async def test_a_question_over_the_message_limit_posts_the_unanswerable_notice_w
 
     await channel.send(_question_message(question=_LONG_QUESTION, header=""))
 
-    assert len(client.posts) == 1
-    assert "blocks" not in client.posts[0]
+    assert all("blocks" not in post for post in client.posts)
     assert "platforms.slack.max_question_messages" in client.posts[0]["text"]
     assert channel._pending_questions == {}
 
@@ -1318,6 +1317,69 @@ async def _ordinary_message(
     )
 
 
+def _closed_long_question(update: dict[str, Any]) -> None:
+    """A closed question over the chat.update text limit keeps all of its text in its blocks."""
+    assert len(update["text"]) <= 4000
+    assert "cut from" in update["text"]
+    assert _buttons(update["blocks"]) == []
+    sections = [block["text"]["text"] for block in update["blocks"] if block["type"] == "section"]
+    assert "x" * 6000 in "".join(sections)
+
+
+@pytest.mark.asyncio
+async def test_answering_a_long_question_keeps_its_blocks_and_fits_the_edit_text() -> None:
+    channel, client = _channel()
+    channel.on_message(lambda _message: None)
+    await channel.send(_question_message(question="x" * 6000, header=""))
+    posted = client.posts[0]
+    body, action = _click(blocks=posted["blocks"])
+    body["message"]["text"] = posted["text"]
+
+    await channel._handle_question_action(_RecordingAck(), body, action)
+
+    _closed_long_question(client.updates[-1])
+
+
+@pytest.mark.asyncio
+async def test_withdrawing_a_long_question_keeps_its_blocks_and_fits_the_edit_text() -> None:
+    channel, client, _routed = _listening_channel()
+    await channel.send(_question_message(question="x" * 6000, header=""))
+
+    await _ordinary_message(channel)
+
+    _closed_long_question(client.updates[-1])
+
+
+@pytest.mark.asyncio
+async def test_withdrawing_a_question_shown_as_text_only_replaces_its_answer_route() -> None:
+    channel, client, _routed = _listening_channel()
+    _failing_post(client, lambda kwargs: _InvalidBlocks() if kwargs.get("blocks") else None)
+    await channel.send(_question_message())
+    assert "blocks" not in client.posts[-1]
+
+    await _ordinary_message(channel)
+
+    update = client.updates[-1]
+    assert update["blocks"] == []
+    assert "no longer waiting for an answer" in update["text"]
+    assert "needs permission to run" in update["text"]
+    assert "cut from" not in update["text"]
+    assert channel._pending_questions["call_abc123"].blocks == []
+
+
+@pytest.mark.asyncio
+async def test_a_withdrawal_clears_the_kept_blocks_and_keeps_a_text_within_the_edit_limit() -> None:
+    channel, client, _routed = _listening_channel()
+    await channel.send(_question_message(question="x" * 6000, header=""))
+    pending = channel._pending_questions["call_abc123"]
+    assert pending.blocks and len(pending.withdrawal_text) <= 4000
+    assert pending.withdrawal_text.endswith("The blocks of this message show all of it.)")
+
+    await _ordinary_message(channel)
+
+    assert pending.blocks == []
+
+
 @pytest.mark.asyncio
 async def test_a_message_in_the_same_session_withdraws_the_question() -> None:
     """The harness drops an interrupt the moment a non-answer resumes it."""
@@ -1331,11 +1393,11 @@ async def test_a_message_in_the_same_session_withdraws_the_question() -> None:
     update = client.updates[0]
     assert update["channel"] == "C1"
     assert update["ts"] == "1710000099.000001"
-    # Passed and empty: an empty list is how chat.update takes away the blocks a
-    # message already has, and omitting the field would leave the buttons up.
-    assert update["blocks"] == []
+    # The blocks lose their buttons and keep the question, so the channel still records what was asked.
+    assert all(block["type"] != "actions" for block in update["blocks"])
+    assert "needs permission to run" in json.dumps(update["blocks"])
+    assert "no longer waiting for an answer" in update["blocks"][-1]["elements"][0]["text"]
     assert "no longer waiting for an answer" in update["text"]
-    # The question survives, so the channel still records what was asked.
     assert "needs permission to run" in update["text"]
     # The message that withdrew it is still delivered, with the envelope
     # marker every dispatched message gets and nothing else.

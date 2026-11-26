@@ -193,7 +193,7 @@ class QuestionPresenter:
         if body == header:
             body = ""
         joined = f"{header}: {body}" if header and body else (body or header)
-        return clamp(joined or "A question is waiting for an answer", 500)
+        return joined or "A question is waiting for an answer"
 
     def options(self, question: Mapping[str, Any]) -> list[QuestionOption]:
         """Read valued options, omitting the free-form choice with no button answer."""

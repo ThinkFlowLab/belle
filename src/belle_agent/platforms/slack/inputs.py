@@ -13,8 +13,9 @@ from belle_agent.platforms.slack.text import clamp
 logger = logging.getLogger(__name__)
 
 MAX_INPUTS_PER_QUESTION = 10
-MAX_LABEL_LENGTH = 150
-MAX_HINT_LENGTH = 150
+# Slack's limit for the label and the hint of an input block.
+MAX_LABEL_LENGTH = 2000
+MAX_HINT_LENGTH = 2000
 MAX_PLACEHOLDER_LENGTH = 150
 MAX_HEADER_LENGTH = 150
 MAX_OPTION_TEXT_LENGTH = 75
@@ -458,6 +459,20 @@ class QuestionInput:
         return f"{prefix}{self.index}.{part}" if part else f"{prefix}{self.index}"
 
 
+def _check_texts(entry: Mapping[str, Any], position: int, label: str, spec: InputSpec) -> None:
+    """Refuse a label or hint longer than Slack holds in an input block."""
+    # A declaration without a label shows its name as the label.
+    named = "label" if str(entry.get("label") or "").strip() else "name"
+    texts = {named: label, "hint": str(entry.get("hint") or "").strip()}
+    texts.update({f"{part}_label": str(entry.get(f"{part}_label") or "").strip() for part in spec.parts if part})
+    for key, text in texts.items():
+        limit = MAX_HINT_LENGTH if key == "hint" else MAX_LABEL_LENGTH
+        if len(text) > limit:
+            raise InputRenderError(
+                f"inputs[{position}].{key} has {len(text)} characters. A Slack input block holds at most {limit}"
+            )
+
+
 def parse_inputs(question: Mapping[str, Any]) -> list[QuestionInput]:
     """Resolve input declarations, or return an empty list when absent."""
     raw = question.get("inputs")
@@ -465,7 +480,7 @@ def parse_inputs(question: Mapping[str, Any]) -> list[QuestionInput]:
         return []
 
     inputs: list[QuestionInput] = []
-    for entry in raw:
+    for position, entry in enumerate(raw):
         if isinstance(entry, str):
             entry = {"type": entry}
         if not isinstance(entry, Mapping):
@@ -479,11 +494,12 @@ def parse_inputs(question: Mapping[str, Any]) -> list[QuestionInput]:
             )
         name = str(entry.get("name") or "").strip() or spec.name
         label = str(entry.get("label") or "").strip() or name
+        _check_texts(entry, position, label, spec)
         inputs.append(
             QuestionInput(
                 spec=spec,
                 name=name,
-                label=clamp(label, MAX_LABEL_LENGTH),
+                label=label,
                 declaration=entry,
                 optional=bool(entry.get("optional")),
                 index=len(inputs),
@@ -533,13 +549,13 @@ def render_input_blocks(inputs: Sequence[QuestionInput], *, action_id_prefix: st
             block: dict[str, Any] = {
                 "type": "input",
                 "block_id": action_id,
-                "label": plain_text(clamp(_label_for_part(entry, part), MAX_LABEL_LENGTH), emoji=True),
+                "label": plain_text(_label_for_part(entry, part), emoji=True),
                 "element": element,
                 "optional": entry.optional,
             }
             hint = str(entry.declaration.get("hint") or "").strip()
             if hint:
-                block["hint"] = plain_text(clamp(hint, MAX_HINT_LENGTH), emoji=True)
+                block["hint"] = plain_text(hint, emoji=True)
             blocks.append(block)
     return blocks
 
