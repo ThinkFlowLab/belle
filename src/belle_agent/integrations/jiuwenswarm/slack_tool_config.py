@@ -23,7 +23,7 @@ _BELLE_KEYS = frozenset({
     "activity_card_delay_seconds", "activity_card_min_edit_seconds",
     "blockkit_tables", "render_tables", "group_digital_avatar",
     "my_user_id", "principal_name", "bot_name", "enable_memory",
-    "home_tab_welcome",
+    "home_tab_welcome", "max_question_messages",
     "canvas_read_max_chars", "directory_scan_max_pages",
 })
 

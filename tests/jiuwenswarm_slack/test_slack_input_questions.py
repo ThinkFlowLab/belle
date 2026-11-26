@@ -479,7 +479,7 @@ async def test_an_unrenderable_declaration_posts_the_unanswerable_notice(
 
     assert "cannot render the inputs" in caplog.text
     assert "blocks" not in client.posts[0]
-    assert "this channel cannot route back" in client.posts[0]["text"]
+    assert "Slack cannot show the inputs of this question: unknown question input type" in client.posts[0]["text"]
     assert channel._pending_questions == {}
 
 

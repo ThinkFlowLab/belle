@@ -46,9 +46,9 @@ from belle_agent.platforms.base import (
     OnInbound,
     PlatformAffordances,
     PlatformUnreachable,
+    QuestionRefused,
 )
 from belle_agent.platforms.slack import TOKEN_VARIABLES
-from belle_agent.platforms.slack import blocks as slack_blocks
 from belle_agent.platforms.slack import questions as slack_questions
 from belle_agent.platforms.slack.actors import SLACK_USERS, ActorUnknown, SlackActors
 from belle_agent.platforms.slack.admission import (
@@ -73,6 +73,7 @@ from belle_agent.platforms.slack.config import (
     resolve_app_messages_from,
     resolve_blockkit_tables_mode,
     resolve_command_name,
+    resolve_max_question_messages,
     resolve_reaction_emoji,
     resolve_render_tables,
     resolve_reply_in_thread,
@@ -253,6 +254,7 @@ def _channel_config(slack: Mapping[str, Any]) -> SlackChannelConfig:
         activity_card_min_edit_seconds=seconds("activity_card_min_edit_seconds"),
         command_name=resolve_command_name(slack),
         home_tab_welcome=bool(slack.get("home_tab_welcome", False)),
+        max_question_messages=resolve_max_question_messages(slack),
     )
 
 
@@ -672,25 +674,17 @@ class SlackPlatform(
         inputs, options = _PRESENTER.answer_choices(
             presented, allow_text_input=question.kind == QUESTION and not question.options, request_id=question.id
         )
-        blocks = (
-            _PRESENTER.answer_blocks(
+        if not inputs and not options:
+            raise QuestionRefused("a question with no options and no inputs gives Slack nothing to answer with")
+        try:
+            messages = _PRESENTER.answer_messages(
                 request_id=question.id, source=question.kind, session_id="",
                 question=presented, declared=inputs, options=options, dropped=[],
+                max_messages=self.config.max_question_messages,
             )
-            if inputs or options
-            else None
-        )
-        if blocks is None:
-            raise SlackDeliveryError(f"question {question.id} could not be rendered as Block Kit", channel_id=conversation)
-        sent, message_ts, error = await self._post_text(
-            channel_id=conversation,
-            text=_PRESENTER.fallback_text(presented),
-            thread_ts=thread,
-            blocks=blocks,
-            block_kind=slack_blocks.BLOCK_KIND_INTERACTIVE,
-            chunk_index=1,
-            chunk_total=1,
-        )
+        except slack_questions.QuestionRenderError as exc:
+            raise QuestionRefused(f"Slack cannot show this question: {exc}") from exc
+        sent, message_ts, error = await self._post_question(messages, channel_id=conversation, thread_ts=thread)
         if not sent:
             raise SlackDeliveryError(error, channel_id=conversation)
         while len(self._questions) >= MAX_SHOWN_QUESTIONS:

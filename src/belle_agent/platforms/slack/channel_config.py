@@ -96,3 +96,5 @@ class SlackChannelConfig:
     activity_card_min_edit_seconds: float = 10.0
     # Publishes only on an empty Home tab.
     home_tab_welcome: bool = False
+    # The most messages one question may take, a resource limit that the operator sets.
+    max_question_messages: int = 10

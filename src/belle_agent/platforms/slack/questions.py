@@ -3,22 +3,29 @@
 import json
 import logging
 import re
-from collections.abc import Callable, Collection, Mapping
+from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
 from belle_agent import click_notices
 from belle_agent.platforms.rendering import markdown_parts
 from belle_agent.platforms.slack import inputs
-from belle_agent.platforms.slack.text import clamp, normalize_slack_mrkdwn
+from belle_agent.platforms.slack.blocks import MAX_BLOCKS_PER_MESSAGE
+from belle_agent.platforms.slack.text import MAX_SLACK_TEXT_LENGTH, clamp, normalize_slack_mrkdwn
 
 MAX_BUTTON_VALUE_LENGTH = 2000
 MAX_BUTTON_TEXT_LENGTH = 75
 MAX_SECTION_TEXT_LENGTH = 3000
+# Slack's text object limit, which applies to each mrkdwn element of a context block.
+MAX_CONTEXT_TEXT_LENGTH = 3000
 MAX_ACTIONS_ELEMENTS = 25
-MAX_OPTION_DESCRIPTION_LENGTH = 200
-MAX_QUESTION_BLOCKS = 50
+# Room for the notice that delivery adds to the text of a message whose blocks Slack refuses.
+_FALLBACK_NOTICE_ROOM = 500
+# The text of each message of a question holds all of its blocks' text, also after a refusal of the blocks.
+MAX_QUESTION_TEXT_LENGTH = MAX_SLACK_TEXT_LENGTH - _FALLBACK_NOTICE_ROOM
 _INTERACTIVE_BLOCK_TYPES = frozenset({"actions", "input"})
+# A block tagged True holds question text, which can move to a message before the controls.
+_Entry = tuple[bool, dict[str, Any]]
 
 # Button action IDs share a prefix so Bolt can route them to one listener.
 QUESTION_ACTION_ID_PREFIX = "jiuwenswarm_answer:"
@@ -34,6 +41,10 @@ QUESTION_ACTION_ID_RE = re.compile(
 # submitted cannot be answered with. The question stays posted and its elements
 # stay on screen, so the fix is to pick and press again.
 INCOMPLETE_SUBMIT_NOTICE = "This cannot be submitted yet —"
+
+
+class QuestionRenderError(ValueError):
+    """A question that Slack messages cannot show. The message says why."""
 
 
 
@@ -228,7 +239,7 @@ class QuestionPresenter:
             )
         return declared, options
 
-    def answer_blocks(
+    def answer_messages(
         self,
         *,
         request_id: str,
@@ -238,33 +249,36 @@ class QuestionPresenter:
         declared: list[inputs.QuestionInput],
         options: list[QuestionOption],
         dropped: list[str],
-    ) -> list[dict[str, Any]] | None:
-        """Render answer controls and name omitted prompts when space allows."""
+        max_messages: int,
+    ) -> list[tuple[str, list[dict[str, Any]]]]:
+        """Render the text and blocks of each message to post in order. The last message holds the controls.
+
+        Raise ``QuestionRenderError`` if the question needs more than ``max_messages`` messages, or cannot be shown.
+        """
         if declared:
-            blocks = self.input_blocks(
+            entries = self._input_entries(
                 request_id=request_id, source=source, session_id=session_id,
                 question=question, inputs_for_question=declared,
             )
         else:
-            blocks = self.option_blocks(
+            entries = self._option_entries(
                 request_id=request_id, source=source, session_id=session_id,
                 question=question, options=options,
             )
-        if blocks is None:
-            return None
-        if len(blocks) > MAX_QUESTION_BLOCKS:
-            blocks = self._fit_prompt(blocks, question, request_id)
-            if blocks is None:
-                return None
         if dropped:
-            if len(blocks) < MAX_QUESTION_BLOCKS:
-                blocks.append(self.dropped_questions_block(dropped))
-            else:
-                self.logger.warning(
-                    "Slack has no room to name the dropped questions on the message, which already holds %d blocks: request_id=%s",
-                    len(blocks), request_id,
-                )
-        return blocks
+            entries.extend(_context_entries(self._dropped_questions_text(dropped)))
+        messages = self._messages(entries)
+        if len(messages) == 1:
+            fallback = self.fallback_text(question)
+            return [(fallback if len(fallback) <= MAX_QUESTION_TEXT_LENGTH else message_text(messages[0]), messages[0])]
+        if len(messages) > max_messages:
+            size = sum(len(message_text(blocks)) for blocks in messages)
+            raise QuestionRenderError(
+                f"the question has {size} characters and needs {len(messages)} Slack messages, "
+                f"over the {max_messages} that platforms.slack.max_question_messages allows"
+            )
+        self.logger.info("Slack question takes %d messages: request_id=%s", len(messages), request_id)
+        return [(message_text(blocks), blocks) for blocks in messages]
 
     @staticmethod
     def encode_button_value(*, request_id: str, index: int, value: str, source: str, session_id: str) -> str:
@@ -283,7 +297,7 @@ class QuestionPresenter:
                 return encoded
         return ""
 
-    def option_blocks(
+    def _option_entries(
         self,
         *,
         request_id: str,
@@ -291,12 +305,10 @@ class QuestionPresenter:
         session_id: str,
         question: Mapping[str, Any],
         options: list[QuestionOption],
-    ) -> list[dict[str, Any]] | None:
-        """Return None if a button cannot carry its request identity."""
-        blocks = self._prompt_blocks(question)
-        legend = self._options_legend(options)
-        if legend:
-            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": legend}})
+    ) -> list[_Entry]:
+        """Raise ``QuestionRenderError`` if a button cannot carry its request identity."""
+        entries = self._prompt_entries(question)
+        entries.extend(_section_entries(self._options_legend(options)))
 
         elements: list[dict[str, Any]] = []
         for index, option in enumerate(options):
@@ -308,20 +320,16 @@ class QuestionPresenter:
                 session_id=session_id,
             )
             if not encoded:
-                self.logger.warning(
-                    "Slack question option %d has no value that fits in %d characters: request_id=%s",
-                    index,
-                    MAX_BUTTON_VALUE_LENGTH,
-                    request_id,
+                raise QuestionRenderError(
+                    f"option {index} has no button value that fits in Slack's {MAX_BUTTON_VALUE_LENGTH} characters"
                 )
-                return None
             elements.append(self._button(option.label, encoded, f"{self.action_id_prefix}{index}", style=option.style))
 
         for start in range(0, len(elements), MAX_ACTIONS_ELEMENTS):
-            blocks.append({"type": "actions", "elements": elements[start : start + MAX_ACTIONS_ELEMENTS]})
-        return blocks
+            entries.append((False, {"type": "actions", "elements": elements[start : start + MAX_ACTIONS_ELEMENTS]}))
+        return entries
 
-    def input_blocks(
+    def _input_entries(
         self,
         *,
         request_id: str,
@@ -329,41 +337,29 @@ class QuestionPresenter:
         session_id: str,
         question: Mapping[str, Any],
         inputs_for_question: list[inputs.QuestionInput],
-    ) -> list[dict[str, Any]] | None:
-        """Render input fields and a submit button, or return None on failure."""
-        blocks = self._prompt_blocks(question)
-        blocks.append(inputs.divider_block())
+    ) -> list[_Entry]:
+        """Render input fields and a submit button, or raise ``QuestionRenderError``."""
+        entries = self._prompt_entries(question)
+        entries.append((False, inputs.divider_block()))
         try:
-            blocks.extend(
-                inputs.render_input_blocks(inputs_for_question, action_id_prefix=f"{self.action_id_prefix}input:")
-            )
+            rendered = inputs.render_input_blocks(inputs_for_question, action_id_prefix=f"{self.action_id_prefix}input:")
         except inputs.InputRenderError as exc:
-            self.logger.warning("Slack could not render a question's inputs: request_id=%s error=%s", request_id, exc)
-            return None
-
-        note = str(question.get("note") or "").strip()
-        if note:
-            blocks.append(inputs.context_block(clamp(normalize_slack_mrkdwn(note), MAX_SECTION_TEXT_LENGTH)))
+            raise QuestionRenderError(f"Slack cannot render its inputs: {exc}") from exc
+        entries.extend((False, block) for block in rendered)
+        entries.extend(_context_entries(normalize_slack_mrkdwn(str(question.get("note") or "").strip())))
 
         # A negative index tells the resolver to read submitted input state.
         encoded = self.encode_button_value(
             request_id=request_id, index=-1, value="", source=source, session_id=session_id
         )
         if not encoded:
-            self.logger.warning(
-                "Slack question submit has no value that fits in %d characters: request_id=%s",
-                MAX_BUTTON_VALUE_LENGTH,
-                request_id,
+            raise QuestionRenderError(
+                f"the submit button has no value that fits in Slack's {MAX_BUTTON_VALUE_LENGTH} characters"
             )
-            return None
         label = str(question.get("submit_label") or "").strip() or "Submit"
-        blocks.append(
-            {
-                "type": "actions",
-                "elements": [self._button(label, encoded, f"{self.action_id_prefix}submit", style="primary")],
-            }
-        )
-        return blocks
+        button = self._button(label, encoded, f"{self.action_id_prefix}submit", style="primary")
+        entries.append((False, {"type": "actions", "elements": [button]}))
+        return entries
 
     @staticmethod
     def _button(label: str, value: str, action_id: str, *, style: str = "") -> dict[str, Any]:
@@ -378,58 +374,65 @@ class QuestionPresenter:
         return button
 
     @classmethod
-    def _prompt_blocks(cls, question: Mapping[str, Any]) -> list[dict[str, Any]]:
-        blocks: list[dict[str, Any]] = []
-        header = str(question.get("header") or "").strip()
-        if question.get("header_block") and header:
-            blocks.append(inputs.header_block(header))
-        blocks.extend(
-            {"type": "section", "text": {"type": "mrkdwn", "text": part}} for part in cls._prompt_parts(question)
-        )
-        return blocks
-
-    @classmethod
-    def _prompt_body(cls, question: Mapping[str, Any]) -> str:
-        if question.get("header_block"):
-            body = normalize_slack_mrkdwn(str(question.get("question") or "").strip())
-        else:
-            body = cls._section_text(question)
-        return body or "…"
-
-    @classmethod
-    def _prompt_parts(cls, question: Mapping[str, Any]) -> list[str]:
-        """Split the prompt over sections, as Slack holds at most 3000 characters in one."""
-        body = cls._prompt_body(question)
-        return [body] if len(body) <= MAX_SECTION_TEXT_LENGTH else markdown_parts(body, MAX_SECTION_TEXT_LENGTH, len)
-
-    def _fit_prompt(
-        self, blocks: list[dict[str, Any]], question: Mapping[str, Any], request_id: str
-    ) -> list[dict[str, Any]] | None:
-        """Drop the prompt's last sections to fit Slack's block limit, and say so before the controls."""
-        parts = self._prompt_parts(question)
-        start = len(self._prompt_blocks(question)) - len(parts)
-        kept = len(parts) - (len(blocks) - MAX_QUESTION_BLOCKS) - 1
-        if kept < 1:
-            self.logger.warning(
-                "Slack question renders %d blocks, over the %d a message holds: request_id=%s",
-                len(blocks), MAX_QUESTION_BLOCKS, request_id,
-            )
-            return None
-        size = len(self._prompt_body(question))
-        notice = (
-            f"*Not all of this question is shown.* Slack holds at most {MAX_QUESTION_BLOCKS} blocks in one message. "
-            f"The question text has {size} characters in {len(parts)} parts, "
-            f"and this message shows only the first {kept} parts."
-        )
-        self.logger.warning(
-            "Slack question text has %d characters in %d parts and the message shows %d parts: request_id=%s",
-            size, len(parts), kept, request_id,
-        )
-        cut = {"type": "section", "text": {"type": "mrkdwn", "text": notice}}
-        return [*blocks[: start + kept], cut, *blocks[start + len(parts) :]]
+    def _prompt_entries(cls, question: Mapping[str, Any]) -> list[_Entry]:
+        header = cls._header_block_text(question)
+        entries: list[_Entry] = [(False, inputs.header_block(header))] if header else []
+        body = normalize_slack_mrkdwn(str(question.get("question") or "").strip()) if header else cls._section_text(question)
+        entries.extend(_section_entries(body or "…"))
+        return entries
 
     @staticmethod
-    def dropped_questions_block(dropped: list[str]) -> dict[str, Any]:
+    def _header_block_text(question: Mapping[str, Any]) -> str:
+        """Return the header for a header block, or "" to show it in the section text."""
+        header = str(question.get("header") or "").strip()
+        # A Slack header block holds at most 150 characters, so a longer header goes in the section text.
+        return header if question.get("header_block") and len(header) <= inputs.MAX_HEADER_LENGTH else ""
+
+    @staticmethod
+    def _messages(entries: list[_Entry]) -> list[list[dict[str, Any]]]:
+        """Split a question so that each message fits, with all of its text before the controls.
+
+        Each earlier message starts with its part number. The last one says which parts come before it.
+        """
+        blocks = [block for _, block in entries]
+        if len(blocks) <= MAX_BLOCKS_PER_MESSAGE and len(message_text(blocks)) <= MAX_QUESTION_TEXT_LENGTH:
+            return [blocks]
+        controls = next(
+            (index for index, (_, block) in enumerate(entries) if block["type"] in _INTERACTIVE_BLOCK_TYPES), len(entries)
+        )
+        lead, rest = entries[:controls], entries[controls:]
+        room, budget = MAX_BLOCKS_PER_MESSAGE - 1, MAX_QUESTION_TEXT_LENGTH - _PART_LABEL_ROOM
+        rest_blocks = [block for _, block in rest]
+        if len(rest) > room or len(message_text(rest_blocks)) > budget:
+            # The text after the first control moves to the end of the text before it.
+            at = max((index + 1 for index, (text, _) in enumerate(lead) if text), default=0)
+            lead = [*lead[:at], *(entry for entry in rest if entry[0]), *lead[at:]]
+            rest = [entry for entry in rest if not entry[0]]
+            rest_blocks = [block for _, block in rest]
+        if len(rest) > room:
+            raise QuestionRenderError(
+                f"its controls take {len(rest)} blocks, over the {room} that a Slack message holds beside a notice"
+            )
+        kept, size = 0, len(message_text(rest_blocks))
+        for _, block in reversed(lead):
+            size += len(message_text([block])) + 2
+            if len(rest) + kept == room or size > budget:
+                break
+            kept += 1
+        earlier = _group(block for _, block in lead[: len(lead) - kept])
+        total = len(earlier) + 1
+        last = [block for _, block in [*lead[len(lead) - kept :], *rest]]
+        notice = (
+            f"*Part {total} of {total} of this question.* Parts 1 to {total - 1} are above in this thread. "
+            "Read them before you answer."
+        )
+        return [
+            *([_section(f"*Part {number} of {total} of this question.*"), *part] for number, part in enumerate(earlier, 1)),
+            [_section(notice), *last],
+        ]
+
+    @staticmethod
+    def _dropped_questions_text(dropped: list[str]) -> str:
         named = [prompt for prompt in dropped if prompt]
         quoted = ", ".join(f'"{normalize_slack_mrkdwn(p)}"' for p in named)
         count = len(dropped)
@@ -439,18 +442,18 @@ class QuestionPresenter:
             else f"{count} more questions that are not on this message"
         )
         body = f"Slack shows one question at a time. This request also asked {tail}"
-        body = f"{body}: {quoted}." if quoted else f"{body}."
-        return {"type": "context", "elements": [{"type": "mrkdwn", "text": clamp(body, MAX_SECTION_TEXT_LENGTH)}]}
+        return f"{body}: {quoted}." if quoted else f"{body}."
 
     @staticmethod
     def _options_legend(options: list[QuestionOption]) -> str:
-        lines: list[str] = []
-        for option in options:
-            if not option.description:
-                continue
-            shown = clamp(option.description, MAX_OPTION_DESCRIPTION_LENGTH)
-            lines.append(f"*{normalize_slack_mrkdwn(option.label)}* — {normalize_slack_mrkdwn(shown)}")
-        return clamp("\n".join(lines), MAX_SECTION_TEXT_LENGTH) if lines else ""
+        """List each option with a description, or with a label longer than its button shows."""
+        return "\n".join(
+            " — ".join(
+                filter(None, (f"*{normalize_slack_mrkdwn(option.label)}*", normalize_slack_mrkdwn(option.description)))
+            )
+            for option in options
+            if option.description or len(option.label) > MAX_BUTTON_TEXT_LENGTH
+        )
 
     @staticmethod
     def _section_text(question: Mapping[str, Any]) -> str:
@@ -462,3 +465,53 @@ class QuestionPresenter:
         if header:
             body = f"*{normalize_slack_mrkdwn(header)}*\n{body}".strip()
         return body
+
+
+def _section(text: str) -> dict[str, Any]:
+    return {"type": "section", "text": {"type": "mrkdwn", "text": text}}
+
+
+def _parts(text: str, limit: int, block: Callable[[str], dict[str, Any]]) -> list[_Entry]:
+    """Split text over as many blocks as its length needs."""
+    if not text:
+        return []
+    parts = [text] if len(text) <= limit else markdown_parts(text, limit, len)
+    return [(True, block(part)) for part in parts]
+
+
+def _section_entries(text: str) -> list[_Entry]:
+    return _parts(text, MAX_SECTION_TEXT_LENGTH, _section)
+
+
+def _context_entries(text: str) -> list[_Entry]:
+    # One part per context block: Slack sets elements of one block side by side.
+    return _parts(text, MAX_CONTEXT_TEXT_LENGTH, inputs.context_block)
+
+
+def message_text(blocks: list[dict[str, Any]]) -> str:
+    """Return the text of header, section and context blocks, for the text of their message."""
+    texts: list[str] = []
+    for block in blocks:
+        if isinstance(block.get("text"), Mapping):
+            texts.append(str(block["text"].get("text") or ""))
+        if block.get("type") == "context":
+            texts.extend(str(element.get("text") or "") for element in block.get("elements", []))
+    return "\n\n".join(text for text in texts if text)
+
+
+# Room for the part number at the start of a message of a split question.
+_PART_LABEL_ROOM = 200
+
+
+def _group(blocks: Iterable[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    """Group blocks into messages that each leave room for a part number."""
+    messages: list[list[dict[str, Any]]] = []
+    size = 0
+    for block in blocks:
+        length = len(message_text([block])) + 2
+        if not messages or len(messages[-1]) == MAX_BLOCKS_PER_MESSAGE - 1 or size + length > MAX_QUESTION_TEXT_LENGTH - _PART_LABEL_ROOM:
+            messages.append([])
+            size = 0
+        messages[-1].append(block)
+        size += length
+    return messages

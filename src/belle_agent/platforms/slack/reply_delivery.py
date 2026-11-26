@@ -42,6 +42,10 @@ from belle_agent.platforms.slack.text import (
 )
 
 logger = logging.getLogger(__name__)
+
+_QUESTION_NOT_SHOWN_NOTICE = (
+    "_This question could not be posted in full, so it does not wait for an answer here. Slack reported: {error}._"
+)
 _MAX_RATE_LIMIT_RETRIES = 3
 _SLACK_TRUNCATION_NOTICE = "…Slack cut the message above short. The rest of it follows."
 _BLOCKKIT_FALLBACK_GENERIC_TEXT = "Sent a Block Kit message."
@@ -112,6 +116,47 @@ class SlackReplyDelivery:
                     chunks_total=len(chunks),
                 )
 
+    async def _post_question(
+        self, messages: list[tuple[str, list[dict[str, Any]]]], *, channel_id: str, thread_ts: str,
+        text_route: str = "", posted_blocks: list[dict[str, Any]] | None = None,
+    ) -> tuple[bool, str, str]:
+        """Post a question's parts in one thread, the controls last, and stop at the first part that fails.
+
+        A part fails unless Slack accepts its blocks. After a failure, the thread says that the question is not shown.
+        A question at the top level starts its own thread. ``posted_blocks`` receives the blocks of the last message
+        if Slack accepted them.
+        """
+        thread = thread_ts
+        for index, (text, blocks) in enumerate(messages):
+            last = index == len(messages) - 1
+            accepted: list[dict[str, Any]] = []
+            sent, message_ts, error = await self._post_text(
+                channel_id=channel_id, text=text, thread_ts=thread, blocks=blocks,
+                block_kind=slack_blocks.BLOCK_KIND_INTERACTIVE if last else slack_blocks.BLOCK_KIND_CHROME,
+                block_text_route=text_route if last else "",
+                chunk_index=index + 1, chunk_total=len(messages), posted_blocks=accepted,
+            )
+            refused = sent and not accepted and not last
+            if refused:
+                error = f"Slack refused the blocks of part {index + 1}"
+            if sent:
+                thread = thread or message_ts
+            if not sent or refused:
+                if index or refused:
+                    await self._post_question_not_shown(channel_id, thread, error)
+                return False, "", error
+            if last and posted_blocks is not None:
+                posted_blocks.extend(accepted)
+        return True, message_ts, ""
+
+    async def _post_question_not_shown(self, channel_id: str, thread_ts: str, error: str) -> None:
+        """Say in the thread of a question's posted parts that the question is not shown."""
+        sent, _, failure = await self._post_text(
+            channel_id=channel_id, text=_QUESTION_NOT_SHOWN_NOTICE.format(error=error), thread_ts=thread_ts,
+        )
+        if not sent:
+            logger.warning("%s could not say that a question is not shown: %s", self._log_tag, failure)
+
     async def _post_text(
         self,
         *,
@@ -125,8 +170,12 @@ class SlackReplyDelivery:
         block_kind: str = slack_blocks.BLOCK_KIND_UNKNOWN,
         block_text_route: str = "",
         repair_truncation: bool = True,
+        posted_blocks: list[dict[str, Any]] | None = None,
     ) -> tuple[bool, str, str]:
-        """Post one chunk and return its delivery result, timestamp, and error."""
+        """Post one chunk and return its delivery result, timestamp, and error.
+
+        ``posted_blocks`` receives the blocks if Slack accepted them.
+        """
         if blocks and not fenced_regions_stripped(text).strip():
             text = _clamp(
                 slack_blocks.blockkit_fallback_summary(blocks)
@@ -206,6 +255,8 @@ class SlackReplyDelivery:
         mode = "update" if update_ts else "post"
         if blocks is not None:
             mode = f"{mode}+blocks"
+            if posted_blocks is not None:
+                posted_blocks.extend(blocks)
         if chunk_total:
             logger.info(
                 "%s delivered text: channel=%s ts=%s chunk=%d/%d mode=%s",

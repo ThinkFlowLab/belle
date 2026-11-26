@@ -339,7 +339,7 @@ When Belle runs as the JiuwenSwarm Slack channel extension, connection admission
 | Location | Keys |
 | --- | --- |
 | JiuwenSwarm `channels.slack` | `enabled`, `default_channel_id`, `allow_from`, `allowed_channel_ids`, `session`, `send_file_allowed`, and usually the token pair |
-| Belle `platforms.slack` | `workspaces`, `command_name`, `app_messages`, `app_messages_from`, `optional_reply_mode`, `group_chat_mode`, `acknowledge_mode`, acknowledgement and status strings/emojis, `session_surface`, `decision_*`, streaming and activity-card keys, Block Kit / table render keys, digital avatar and naming keys, `enable_memory`, `home_tab_welcome`, history limits, `search_enabled`, `enforce_audience`, and the rest of the example file |
+| Belle `platforms.slack` | `workspaces`, `command_name`, `app_messages`, `app_messages_from`, `optional_reply_mode`, `group_chat_mode`, `acknowledge_mode`, acknowledgement and status strings/emojis, `session_surface`, `decision_*`, streaming and activity-card keys, Block Kit / table render keys, digital avatar and naming keys, `enable_memory`, `home_tab_welcome`, `max_question_messages`, history limits, `search_enabled`, `enforce_audience`, and the rest of the example file |
 
 Both places take an `enabled` key, with different meanings. JiuwenSwarm's
 `channels.slack.enabled` turns its Slack channel on and off. Belle's

@@ -10,7 +10,6 @@ from jiuwenswarm.extensions.sdk.channel_runtime import RoutingTarget
 from jiuwenswarm.extensions.sdk.host_types import Message
 
 from belle_agent.integrations.jiuwenswarm.slack_inbound import _INTERRUPT_RESUME_SOURCES
-from belle_agent.platforms.slack import blocks as slack_blocks
 from belle_agent.platforms.slack import inputs as slack_inputs
 from belle_agent.platforms.slack import questions as slack_questions
 from belle_agent.platforms.slack.admission import SlackTurnInitiator
@@ -121,7 +120,8 @@ class SlackQuestionMixin:
                 exc,
             )
             await self._post_unanswerable_notice(
-                msg, routing_target, request_id, source, question
+                msg, routing_target, request_id, source, question,
+                f"Slack cannot show the inputs of this question: {exc}.",
             )
             return
 
@@ -133,33 +133,33 @@ class SlackQuestionMixin:
                 source,
             )
             await self._post_unanswerable_notice(
-                msg, routing_target, request_id, source, question
+                msg, routing_target, request_id, source, question,
+                "This question needs a typed answer, which this channel cannot route back to the waiting task.",
             )
             return
 
         channel_id, thread_ts = self._require_delivery(msg, routing_target)
 
         session_id = str(msg.session_id or "")
-        blocks = _QUESTION_PRESENTER.answer_blocks(
-            request_id=request_id, source=source, session_id=session_id,
-            question=question, declared=inputs, options=options, dropped=dropped,
-        )
-        if blocks is None:
-            raise SlackDeliveryError(
-                f"question {request_id} could not be rendered as Block Kit",
-                channel_id=channel_id,
+        try:
+            messages = _QUESTION_PRESENTER.answer_messages(
+                request_id=request_id, source=source, session_id=session_id,
+                question=question, declared=inputs, options=options, dropped=dropped,
+                max_messages=self.config.max_question_messages,
             )
+        except slack_questions.QuestionRenderError as exc:
+            logger.warning("Slack cannot show a question: request_id=%s source=%s error=%s", request_id, source, exc)
+            await self._post_unanswerable_notice(
+                msg, routing_target, request_id, source, question, f"Slack cannot show this question: {exc}."
+            )
+            return
 
         notification_text = _QUESTION_PRESENTER.fallback_text(question)
-        sent, message_ts, error = await self._post_text(
+        sent, message_ts, error = await self._post_question(
+            messages,
             channel_id=channel_id,
-            text=notification_text,
             thread_ts=thread_ts,
-            blocks=blocks,
-            block_kind=slack_blocks.BLOCK_KIND_INTERACTIVE,
-            block_text_route=slack_questions.text_route(source, _INTERRUPT_RESUME_SOURCES),
-            chunk_index=1,
-            chunk_total=1,
+            text_route=slack_questions.text_route(source, _INTERRUPT_RESUME_SOURCES),
         )
         if not sent:
             raise SlackDeliveryError(error, channel_id=channel_id)
@@ -204,8 +204,9 @@ class SlackQuestionMixin:
         request_id: str,
         source: str,
         question: Mapping[str, Any],
+        why: str,
     ) -> None:
-        """Report an unanswerable question without raising a second error."""
+        """Report an unanswerable question and why, without raising a second error."""
         if self._client is None:
             return
         channel_id, thread_ts = self._extract_delivery(msg, routing_target)
@@ -220,9 +221,7 @@ class SlackQuestionMixin:
 
         text = (
             f"{_QUESTION_PRESENTER.fallback_text(question)}\n\n"
-            "_This question needs a typed answer, which this channel cannot "
-            "route back to the waiting task. The task stays paused until it is "
-            "answered elsewhere or times out._"
+            f"_{why} The task stays paused until it is answered elsewhere or times out._"
         )
         try:
             sent, _, error = await self._post_text(

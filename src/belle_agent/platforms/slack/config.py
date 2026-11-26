@@ -434,6 +434,19 @@ def resolve_seconds(slack_conf: Mapping[str, Any], key: str, default: float) -> 
     return float(value)
 
 
+DEFAULT_MAX_QUESTION_MESSAGES = 10
+
+
+def resolve_max_question_messages(slack_conf: Mapping[str, Any]) -> int:
+    """Resolve how many messages one question may take, 1 or more. An absent key keeps the default."""
+    value = slack_conf.get("max_question_messages")
+    if value is None:
+        return DEFAULT_MAX_QUESTION_MESSAGES
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise BelleConfigError("Belle config platforms.slack.max_question_messages must be a whole number, 1 or more")
+    return value
+
+
 def resolve_decision_forward(slack_conf: Mapping[str, Any]) -> bool:
     """Resolve the advisory forwarding setting."""
     raw = slack_conf.get("decision_forward", True)

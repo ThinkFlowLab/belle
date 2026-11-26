@@ -302,8 +302,8 @@ async def test_the_legend_does_not_change_what_a_button_answers_with() -> None:
 
 
 @pytest.mark.asyncio
-async def test_the_legend_does_not_clamp_the_question_any_sooner() -> None:
-    """The legend is its own block, so it does not spend the question's budget."""
+async def test_the_legend_does_not_cut_the_question() -> None:
+    """The legend has its own blocks, so it does not spend the question's budget."""
     options = _default_interrupt_options()
     channel, client = _channel()
 
@@ -311,17 +311,14 @@ async def test_the_legend_does_not_clamp_the_question_any_sooner() -> None:
         _question_message(question="q" * 5000, header="", options=options)
     )
 
-    blocks = client.posts[0]["blocks"]
-    # Clamped exactly as it is without a legend, rather than sooner to make room.
-    assert len(blocks[0]["text"]["text"]) == 3000
-    legend = _legend(blocks)
-    assert legend is not None
+    sections = [block["text"]["text"] for block in client.posts[0]["blocks"] if block["type"] == "section"]
+    assert "".join(sections[:2]) == "q" * 5000
     for option in options:
-        assert option["description"] in legend
+        assert option["description"] in sections[2]
 
 
 @pytest.mark.asyncio
-async def test_a_long_description_is_clamped_without_crowding_out_the_others() -> None:
+async def test_a_long_description_shows_whole_beside_the_others() -> None:
     channel, client = _channel()
 
     await channel.send(
@@ -333,12 +330,142 @@ async def test_a_long_description_is_clamped_without_crowding_out_the_others() -
         )
     )
 
-    legend = _legend(client.posts[0]["blocks"])
-    first, second = legend.splitlines()
-    assert first.endswith("…")
-    assert len(first) <= len("*First* — ") + 200
-    assert second == "*Second* — kept"
-    assert len(legend) <= 3000
+    legend = [block["text"]["text"] for block in client.posts[0]["blocks"] if block["type"] == "section"][1:]
+    assert all(len(part) <= 3000 for part in legend)
+    assert "d" * 5000 in "".join(legend)
+    assert legend[-1].endswith("*Second* — kept")
+    assert "…" not in "".join(legend)
+
+
+_LONG_QUESTION = "\n\n".join(f"p{index}-" + "p" * 2900 for index in range(30))
+
+
+def _sections_of(posts: list[dict[str, Any]]) -> list[str]:
+    return [block["text"]["text"] for post in posts for block in post.get("blocks") or [] if block["type"] == "section"]
+
+
+class _InvalidBlocks(Exception):
+    """What slack_sdk raises when Slack refuses the blocks of a message."""
+
+    def __init__(self) -> None:
+        super().__init__("invalid_blocks")
+        self.response = {"ok": False, "error": "invalid_blocks"}
+
+
+def _failing_post(client: _RecordingSlackClient, fail: Any) -> None:
+    """Make chat.postMessage raise ``fail(kwargs)`` when it returns an exception."""
+    posted = client.chat_postMessage
+
+    async def post(**kwargs: Any) -> dict[str, str]:
+        error = fail(kwargs)
+        if error is not None:
+            raise error
+        return await posted(**kwargs)
+
+    client.chat_postMessage = post
+
+
+@pytest.mark.asyncio
+async def test_a_question_over_one_message_posts_numbered_parts_in_its_thread_before_its_buttons() -> None:
+    channel, client = _channel()
+
+    await channel.send(_question_message(question=_LONG_QUESTION, header=""))
+
+    total = len(client.posts)
+    assert total > 1
+    assert {post["thread_ts"] for post in client.posts} == {"1710000000.000100"}
+    assert all(_buttons(post["blocks"]) == [] for post in client.posts[:-1])
+    assert _buttons(client.posts[-1]["blocks"])
+    assert client.posts[-1]["blocks"][0]["text"]["text"].startswith(f"*Part {total} of {total} of this question.*")
+    assert channel._pending_questions["call_abc123"].message_ts == f"1710000099.{total:06d}"
+    assert [section for section in _sections_of(client.posts) if section.startswith("p")] == _LONG_QUESTION.split("\n\n")
+
+
+@pytest.mark.asyncio
+async def test_a_top_level_question_over_one_message_starts_its_own_thread() -> None:
+    channel, client = _channel()
+    posted = client.chat_postMessage
+
+    async def post_beside_another(**kwargs: Any) -> dict[str, str]:
+        answer = await posted(**kwargs)
+        # Another message lands in the channel between two parts.
+        client.posts.append({"channel": "C1", "text": "someone else"})
+        return answer
+
+    client.chat_postMessage = post_beside_another
+
+    await channel.send(_question_message(question=_LONG_QUESTION, header="", metadata={"slack_channel_id": "C1"}))
+
+    parts = [post for post in client.posts if post["text"] != "someone else"]
+    assert not parts[0].get("thread_ts")
+    assert {post["thread_ts"] for post in parts[1:]} == {"1710000099.000001"}
+    total = len(parts)
+    assert parts[-1]["blocks"][0]["text"]["text"].startswith(
+        f"*Part {total} of {total} of this question.* Parts 1 to {total - 1} are above in this thread."
+    )
+
+
+@pytest.mark.asyncio
+async def test_refused_blocks_on_a_full_earlier_part_stop_the_question_before_its_buttons() -> None:
+    channel, client = _channel()
+    _failing_post(client, lambda kwargs: _InvalidBlocks() if kwargs.get("blocks") and len(client.posts) == 0 else None)
+
+    with pytest.raises(SlackDeliveryError, match="refused the blocks of part 1"):
+        await channel.send(_question_message(question=_LONG_QUESTION, header=""))
+
+    # The text of the refused part still holds all of its text, the end included.
+    first = client.posts[0]
+    assert "blocks" not in first
+    last_section = [section for section in _LONG_QUESTION.split("\n\n") if section in first["text"]][-1]
+    assert first["text"].index(last_section) + len(last_section) < len(first["text"])
+    assert len(first["text"]) <= 38000
+    assert all(not _buttons(post.get("blocks") or []) for post in client.posts)
+    assert "could not be posted in full" in client.posts[-1]["text"]
+    assert channel._pending_questions == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failing", ["later part", "controls"])
+async def test_a_failed_part_says_in_the_thread_that_the_question_is_not_shown(failing: str) -> None:
+    channel, client = _channel()
+    await channel.send(_question_message(question=_LONG_QUESTION, header=""))
+    total = len(client.posts)
+    channel, client = _channel()
+    failed_post = 1 if failing == "later part" else total - 1
+    _failing_post(
+        client, lambda kwargs: RuntimeError("channel_not_found") if len(client.posts) == failed_post and kwargs.get("blocks") else None
+    )
+
+    with pytest.raises(SlackDeliveryError, match="channel_not_found"):
+        await channel.send(_question_message(question=_LONG_QUESTION, header=""))
+
+    assert all(not _buttons(post.get("blocks") or []) for post in client.posts)
+    assert client.posts[-1]["thread_ts"] == "1710000000.000100"
+    assert "could not be posted in full" in client.posts[-1]["text"]
+    assert channel._pending_questions == {}
+
+
+@pytest.mark.asyncio
+async def test_a_question_over_the_message_limit_posts_the_unanswerable_notice_with_the_setting() -> None:
+    channel, client = _channel(max_question_messages=2)
+
+    await channel.send(_question_message(question=_LONG_QUESTION, header=""))
+
+    assert len(client.posts) == 1
+    assert "blocks" not in client.posts[0]
+    assert "platforms.slack.max_question_messages" in client.posts[0]["text"]
+    assert channel._pending_questions == {}
+
+
+@pytest.mark.asyncio
+async def test_a_question_whose_controls_do_not_fit_posts_the_unanswerable_notice() -> None:
+    channel, client = _channel()
+    options = [{"label": f"o{index}", "value": f"v{index}"} for index in range(50 * 25)]
+
+    await channel.send(_question_message(options=options))
+
+    assert len(client.posts) == 1
+    assert "its controls take 50 blocks" in client.posts[0]["text"]
 
 
 @pytest.mark.asyncio
@@ -625,18 +752,20 @@ def test_button_value_sheds_optional_fields_in_order() -> None:
 
 
 @pytest.mark.asyncio
-async def test_unrenderable_question_raises_rather_than_posting_a_broken_message() -> None:
+async def test_unrenderable_question_posts_the_unanswerable_notice_rather_than_a_broken_message() -> None:
     channel, client = _channel()
 
-    with pytest.raises(SlackDeliveryError):
-        await channel.send(
-            _question_message(
-                request_id="r" * 3000,
-                options=[{"label": "Approve", "value": "approve"}],
-            )
+    await channel.send(
+        _question_message(
+            request_id="r" * 3000,
+            options=[{"label": "Approve", "value": "approve"}],
         )
+    )
 
-    assert client.posts == []
+    assert len(client.posts) == 1
+    assert "blocks" not in client.posts[0]
+    assert "no button value that fits in Slack's 2000 characters" in client.posts[0]["text"]
+    assert channel._pending_questions == {}
 
 
 @pytest.mark.asyncio

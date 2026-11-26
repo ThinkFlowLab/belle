@@ -42,6 +42,7 @@ from belle_agent.platforms.base import (
     InboundMessage,
     PlaceCheck,
     PlatformUnreachable,
+    QuestionRefused,
     create_platform,
 )
 from belle_agent.platforms.slack import connector
@@ -640,6 +641,40 @@ async def test_an_approval_is_rendered_with_buttons_and_resolved_from_the_click(
     closed = socket.web.payload("chat_update")
     assert closed["ts"] == shown and not [block for block in closed["blocks"] if block["type"] == "actions"]
     assert f"Answered by <@{BYSTANDER}>: Reject" in closed["text"]
+
+
+_LONG_QUESTION = "\n\n".join(f"p{index}-" + "p" * 2900 for index in range(30))
+
+
+async def test_a_long_top_level_question_posts_its_parts_in_the_thread_of_the_first(connected):
+    platform, socket, _ = await connected(outcome="answered session=s1")
+
+    shown = await platform.ask(ROOM, "", Question(id="perm-4", text=_LONG_QUESTION, options=("approve", "reject"), kind=APPROVAL, tool="rm"))
+
+    posts = socket.web.payloads("chat_postMessage")
+    assert len(posts) > 1 and not posts[0].get("thread_ts")
+    stamps = [ts for method, _, ts in socket.web.sent if method == "chat_postMessage"]
+    assert {post["thread_ts"] for post in posts[1:]} == {stamps[0]}
+    assert shown == stamps[-1]
+    assert all(len(post["text"]) <= 37500 for post in posts)
+    assert [block["elements"][0]["text"]["text"] for block in posts[-1]["blocks"] if block["type"] == "actions"] == ["Approve"]
+
+
+async def test_a_question_over_the_message_limit_is_refused_with_the_setting(connected):
+    platform, socket, _ = await connected("platforms: {slack: {enforce_audience: true, max_question_messages: 2}}\n")
+
+    with pytest.raises(QuestionRefused, match="over the 2 that platforms.slack.max_question_messages allows"):
+        await platform.ask(ROOM, ROOT, Question(id="perm-5", text=_LONG_QUESTION, options=("approve", "reject"), kind=APPROVAL))
+
+    assert socket.web.payloads("chat_postMessage") == []
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, True, "3"])
+def test_max_question_messages_must_be_a_whole_number_of_one_or_more(slack, tmp_path, value):
+    text = f"platforms: {{slack: {{enforce_audience: true, max_question_messages: {json.dumps(value)}}}}}\n"
+
+    with pytest.raises(BelleConfigError, match=r"^Belle config platforms\.slack\.max_question_messages must be a whole number, 1 or more$"):
+        create_platform(_config(tmp_path, text), "slack")
 
 
 async def test_a_click_the_host_refuses_tells_the_clicker_and_leaves_the_question_open(connected):

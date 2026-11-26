@@ -134,6 +134,7 @@ platforms:
     render_tables: data_table
     bot_name: "Belle"
     home_tab_welcome: false
+    max_question_messages: 10
     search_enabled: true
     history_max_messages: 2000
     history_max_total_chars: 200000

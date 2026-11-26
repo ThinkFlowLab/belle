@@ -28,6 +28,7 @@ from belle_agent.platforms.slack.config import (
     resolve_blockkit_tables_mode,
     resolve_command_name,
     resolve_decision_forward,
+    resolve_max_question_messages,
     resolve_optional_reply_mode,
     resolve_reaction_emoji,
     resolve_render_tables,
@@ -127,6 +128,7 @@ def configure_slack_workspaces(
         activity_card_delay_seconds=resolve_seconds(config, "activity_card_delay_seconds", 5.0),
         activity_card_min_edit_seconds=resolve_seconds(config, "activity_card_min_edit_seconds", 10.0),
         home_tab_welcome=bool(config.get("home_tab_welcome", False)),
+        max_question_messages=resolve_max_question_messages(config),
     )
     describe_configured_channels(shared)
     describe_post_tool_reachability(shared)
