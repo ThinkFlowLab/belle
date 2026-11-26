@@ -55,6 +55,7 @@ from belle_agent.backend import (
     Answer,
     Backend,
     BackendCapabilities,
+    BackendError,
     BackendHealth,
     PeekHistoryPart,
     Question,
@@ -541,6 +542,8 @@ class ConversationHost(SessionRuns, ScheduledTurns, HostCommands, EventAdmission
         # request id, which names a request on one platform only.
         self._questions: dict[tuple[str, str], _Turn] = {}
         self._question_timeouts: dict[tuple[str, str], asyncio.Task[None]] = {}
+        #: The questions whose answer a backend is taking. Each stays in ``_questions`` until the backend has it.
+        self._answering: dict[tuple[str, str], asyncio.Event] = {}
         # Question id to the tool call that runs if a person agrees. A held call outlives its turn.
         self._held: dict[str, _HeldCall] = {}
         self._held_timeouts: dict[str, asyncio.Task[None]] = {}
@@ -2487,6 +2490,9 @@ class ConversationHost(SessionRuns, ScheduledTurns, HostCommands, EventAdmission
 
     async def _expire_backend_question(self, key: tuple[str, str], turn: _Turn, question_id: str) -> None:
         await asyncio.sleep(self._question_timeout())
+        if (answering := self._answering.get(key)) is not None:
+            # The answer the backend takes decides. One it refuses leaves the question to expire now.
+            await answering.wait()
         if self._questions.get(key) is not turn:
             return
         del self._questions[key]
@@ -2727,9 +2733,21 @@ class ConversationHost(SessionRuns, ScheduledTurns, HostCommands, EventAdmission
             self._cancel_held_timer(answer.question_id)
             await self._settle_held(answer.question_id, held, answer)
             return f"answered conversation={turn.conversation}"
-        del self._questions[(answer.platform, answer.question_id)]
-        self._cancel_question_timer((answer.platform, answer.question_id))
-        await self._backend.answer(turn.conversation, answer.question_id, answer.answer)
+        key = (answer.platform, answer.question_id)
+        if key in self._answering:
+            return "ignored:question-being-answered"
+        # The question waits until the backend takes the answer, so a person can answer again after a refusal.
+        self._answering[key] = asyncio.Event()
+        try:
+            await self._backend.answer(turn.conversation, answer.question_id, answer.answer)
+        except BackendError as exc:
+            logger.warning("%s backend did not take an answer: question=%s reason=%s", answer.platform, answer.question_id, exc)
+            return f"undelivered:backend {exc}"
+        finally:
+            self._answering.pop(key).set()
+        if self._questions.get(key) is turn:
+            del self._questions[key]
+        self._cancel_question_timer(key)
         return f"answered conversation={turn.conversation}"
 
     # ── startup checks ───────────────────────────────────────────────────

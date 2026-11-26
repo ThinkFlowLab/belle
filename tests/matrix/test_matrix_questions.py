@@ -6,7 +6,7 @@ import pytest
 from peer import USER, Peer, Room
 
 from belle_agent.backend import APPROVAL, Question
-from belle_agent.click_notices import ANSWER_REFUSED_NOTICE, WITHDRAWN_QUESTION_NOTE
+from belle_agent.click_notices import ANSWER_REFUSED_NOTICE, ANSWER_UNDELIVERED_NOTICE, WITHDRAWN_QUESTION_NOTE
 from belle_agent.platforms.base import InboundAnswer, QuestionRefused
 from belle_agent.platforms.matrix.connector import MatrixPlatform
 from belle_agent.platforms.matrix.questions import POLL_END, POLL_RESPONSE, POLL_START, TEXT
@@ -91,6 +91,18 @@ async def test_a_vote_answers_and_the_poll_ends_with_who_answered(peer):
     # A later vote finds the poll ended: nothing is answered and nothing is sent again.
     assert await platform.handle(vote(poll, CAROL, "1")) == "ignored:question-not-waiting"
     assert len(host.answers) == 1 and len(peer.sent(POLL_END)) == 1
+
+
+async def test_a_vote_the_backend_did_not_take_is_told_to_its_voter_and_the_poll_stays_open(peer):
+    host = Host()
+    host.outcome = "undelivered:backend the server refused it"
+    platform = matrix(peer, host)
+    poll = await platform.ask(ROOM, "", APPROVE_POST)
+
+    await platform.handle(vote(poll, CAROL, "0"))
+
+    assert [note["body"] for note in notes(peer)] == [f"{CAROL}: {ANSWER_UNDELIVERED_NOTICE}"]
+    assert peer.sent(POLL_END) == []
 
 
 async def test_a_refused_vote_is_told_once_to_its_voter_and_the_poll_stays_open(peer):

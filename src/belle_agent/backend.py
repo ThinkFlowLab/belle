@@ -507,7 +507,10 @@ class Backend(Protocol):
         """Put a question the core invents. Return its id."""
 
     async def answer(self, conversation: str, question_id: str, answer: Answer) -> None:
-        """Deliver a person's answer to a waiting question."""
+        """Deliver a person's answer to a waiting question.
+
+        Raise :class:`BackendError` for an answer that the backend cannot deliver. The question then still waits.
+        """
 
     async def refuse_question(self, conversation: str, question_id: str, reason: str) -> None:
         """Tell the turn that its waiting question reached nobody, and why. Only with ``OP_REFUSE_QUESTION``.

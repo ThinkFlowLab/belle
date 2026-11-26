@@ -15,6 +15,7 @@ from typing import Any, Protocol
 from belle_agent.backend import APPROVAL, Answer, Question
 from belle_agent.click_notices import (
     ANSWER_REFUSED_NOTICE,
+    ANSWER_UNDELIVERED_NOTICE,
     APPROVAL_LABELS,
     WITHDRAWN_QUESTION_NOTE,
     answered_note,
@@ -154,6 +155,9 @@ class Questions:
             # A late vote must not answer a question twice. The poll ends.
             self._shown.pop(poll, None)
             await self._close(room, poll, shown.thread, WITHDRAWN_QUESTION_NOTE)
+        elif outcome.startswith("undelivered"):
+            # The poll stays open for another vote.
+            await self._note(room, poll, shown.thread, f"{sender}: {ANSWER_UNDELIVERED_NOTICE}")
         elif outcome.startswith("refused") and (poll, sender) not in self._told:
             # The poll stays open for somebody who may answer it. Each voter is told once.
             self._told.add((poll, sender))

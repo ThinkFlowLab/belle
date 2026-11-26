@@ -525,6 +525,7 @@ sees:
 | --- | --- |
 | By a person who may answer | The answer reaches the turn. The post keeps its text and shows `Answered by @<name>: <option>` in place of its buttons. |
 | By a person who may not | The question stays open. The person reads that they are not permitted to answer. |
+| That the backend does not take | The question stays open. The person reads that Belle could not deliver the answer, so they can answer again. |
 | On a question that no longer waits, such as after a restart | The buttons go, and the post says that the request no longer waits. Nothing is answered. |
 
 A call held for a person's agreement, such as a post that reaches people who

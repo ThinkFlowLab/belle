@@ -19,6 +19,7 @@ from typing import Any
 from belle_agent.backend import APPROVAL, Answer, Question
 from belle_agent.click_notices import (
     ANSWER_REFUSED_NOTICE,
+    ANSWER_UNDELIVERED_NOTICE,
     APPROVAL_LABELS,
     STOP_STALE_NOTICE,
     WITHDRAWN_QUESTION_NOTE,
@@ -177,6 +178,8 @@ class Questions:
         if outcome.startswith("refused"):
             # The question stays open for somebody who may answer it.
             return {"ephemeral_text": ANSWER_REFUSED_NOTICE}, outcome
+        if outcome.startswith("undelivered"):
+            return {"ephemeral_text": ANSWER_UNDELIVERED_NOTICE}, outcome
         return {"ephemeral_text": NOT_SERVING_NOTICE}, outcome
 
     async def _withdrawn(self, request: Mapping[str, Any], *, stop: bool) -> dict[str, Any]:

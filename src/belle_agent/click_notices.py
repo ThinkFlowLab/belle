@@ -12,6 +12,10 @@ APPROVAL_LABELS = {APPROVE: "Approve", REJECT: "Reject"}
 # not let them answer. The question stays open for somebody who may.
 ANSWER_REFUSED_NOTICE = "You are not permitted to answer this request."
 
+# Shown to the person who answered and to nobody else, when the answer did not
+# reach the work that waits on it. The question stays open for another answer.
+ANSWER_UNDELIVERED_NOTICE = "Belle could not deliver this answer. The request is still open: try again."
+
 # Shown on a message that was clicked anyway, in place of the answered note.
 WITHDRAWN_QUESTION_NOTE = "This request is no longer waiting for an answer."
 

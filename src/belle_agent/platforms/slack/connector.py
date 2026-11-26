@@ -24,7 +24,12 @@ from typing import Any
 
 from belle_agent.attachments import fetch_message_files
 from belle_agent.backend import APPROVAL, QUESTION, Answer, Question
-from belle_agent.click_notices import ANSWER_REFUSED_NOTICE, APPROVAL_LABELS, WITHDRAWN_QUESTION_NOTE
+from belle_agent.click_notices import (
+    ANSWER_REFUSED_NOTICE,
+    ANSWER_UNDELIVERED_NOTICE,
+    APPROVAL_LABELS,
+    WITHDRAWN_QUESTION_NOTE,
+)
 from belle_agent.config import BelleConfigError, platform_section
 from belle_agent.platforms.base import (
     MARK_DONE,
@@ -763,6 +768,8 @@ class SlackPlatform(
         elif outcome.startswith("refused:clicks."):
             # The question stays open for somebody who may answer it.
             await self._notify_clicker(body, user_id, ANSWER_REFUSED_NOTICE, notice="answer-refused")
+        elif outcome.startswith("undelivered"):
+            await self._notify_clicker(body, user_id, ANSWER_UNDELIVERED_NOTICE, notice="answer-undelivered")
         elif outcome.startswith("ignored:question-not-waiting"):
             # A stale click must not answer a question twice. Its buttons come off the message it was made on.
             if shown.conversation == chat_id:

@@ -505,6 +505,7 @@ ID. Belle answers a vote in a reply to the poll. The reply notifies nobody.
 | --- | --- |
 | By a person who may answer | The answer reaches the turn. The poll ends, and the reply says `Answered by <user id>: <option>`. |
 | By a person who may not | The poll stays open. The reply names the person and says that they are not permitted to answer, once per person and poll. Element still counts the vote in the poll's results. |
+| That the backend does not take | The poll stays open. The reply names the person and says that Belle could not deliver the answer, so they can vote again. |
 | On a poll that no longer waits, such as after a restart | The poll ends, and the reply says that the request no longer waits. Nothing is answered. |
 
 A call held for a person's agreement is asked the same way: a post, an edit

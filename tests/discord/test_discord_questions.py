@@ -10,6 +10,7 @@ from discord_transport import BOT_ID, TOKEN, FakeGateway, FakeRest, hello, ready
 from belle_agent.backend import APPROVAL, Question
 from belle_agent.click_notices import (
     ANSWER_REFUSED_NOTICE,
+    ANSWER_UNDELIVERED_NOTICE,
     STOP_ACCEPTED_NOTICE,
     STOP_STALE_NOTICE,
     WITHDRAWN_QUESTION_NOTE,
@@ -187,6 +188,17 @@ async def test_a_question_with_no_options_opens_a_form_and_its_text_is_the_answe
         "asked:text-form-opened", MODAL, 4000, True)
     assert outcome == "answered:test" and platform.received[0].answer.values == ("Balloon notes",)
     assert _sent(platform.rest, "POST", "/callback")[-1] == {"type": DEFERRED_UPDATE}
+
+
+async def test_a_click_the_backend_did_not_take_tells_the_clicker_to_try_again(platform):
+    await platform.ask(CHANNEL, THREAD, Question("q9", "Which?", ("a", "b")), workspace=GUILD)
+    first = _components(platform.rest)[0]["custom_id"]
+    platform.outcome = "undelivered:backend the server refused it"
+
+    await platform.questions.on_interaction(_click(first))
+
+    (told,) = _sent(platform.rest, "POST", f"/webhooks/{APP}/{SECRET}")
+    assert (told["content"], told["flags"]) == (ANSWER_UNDELIVERED_NOTICE, EPHEMERAL)
 
 
 async def test_a_refused_click_is_told_to_the_clicker_alone_and_the_question_stays_open(platform):

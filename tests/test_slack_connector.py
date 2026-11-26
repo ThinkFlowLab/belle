@@ -19,7 +19,7 @@ from slack_kit import SlackKit
 from slack_transport import APP_TOKEN, BOT_ID, BOT_TOKEN, BOT_USER, TEAM, FakeSlackWeb, FakeSocket, button, click_body
 
 from belle_agent.backend import APPROVAL, Answer, Question
-from belle_agent.click_notices import ANSWER_REFUSED_NOTICE, WITHDRAWN_QUESTION_NOTE
+from belle_agent.click_notices import ANSWER_REFUSED_NOTICE, ANSWER_UNDELIVERED_NOTICE, WITHDRAWN_QUESTION_NOTE
 from belle_agent.config import BelleConfigError, load_config
 from belle_agent.host import OUTCOME_INTERRUPTED, OUTCOME_POSTED_BY_TOOL, OUTCOME_POSTED_FINAL
 from belle_agent.platforms.base import (
@@ -686,6 +686,18 @@ async def test_a_click_the_host_refuses_tells_the_clicker_and_leaves_the_questio
 
     told = socket.web.payload("chat_postEphemeral")
     assert (told["channel"], told["user"], told["text"]) == (ROOM, BYSTANDER, ANSWER_REFUSED_NOTICE)
+    assert socket.web.payloads("chat_update") == []
+
+
+async def test_an_answer_the_backend_did_not_take_tells_the_clicker_to_try_again(connected):
+    platform, socket, _ = await connected(outcome="undelivered:backend the server refused it")
+    shown = await platform.ask(ROOM, "", APPROVE_RM)
+    payload = socket.web.payload("chat_postMessage")
+
+    await _click(socket, payload, shown, value="approve", user=BYSTANDER)
+
+    told = socket.web.payload("chat_postEphemeral")
+    assert (told["user"], told["text"]) == (BYSTANDER, ANSWER_UNDELIVERED_NOTICE)
     assert socket.web.payloads("chat_update") == []
 
 

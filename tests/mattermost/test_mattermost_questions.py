@@ -5,7 +5,12 @@ import pytest
 from transport import TOKEN, URL, EventFeeder, FakeRest, hello
 
 from belle_agent.backend import APPROVAL, Question
-from belle_agent.click_notices import ANSWER_REFUSED_NOTICE, STOP_STALE_NOTICE, WITHDRAWN_QUESTION_NOTE
+from belle_agent.click_notices import (
+    ANSWER_REFUSED_NOTICE,
+    ANSWER_UNDELIVERED_NOTICE,
+    STOP_STALE_NOTICE,
+    WITHDRAWN_QUESTION_NOTE,
+)
 from belle_agent.platforms.base import InboundAnswer, InboundStop, QuestionRefused
 from belle_agent.platforms.mattermost.client import MattermostClient, MattermostError
 from belle_agent.platforms.mattermost.connector import MattermostPlatform
@@ -97,6 +102,8 @@ async def test_a_refused_answer_is_told_to_the_clicker_alone_and_the_question_st
     host.outcome = "refused:clicks.approve=user:U-LEAD"
 
     assert await connector.questions.on_click(_click(rest, post_id, 0)) == {"ephemeral_text": ANSWER_REFUSED_NOTICE}
+    host.outcome = "undelivered:backend the server refused it"
+    assert await connector.questions.on_click(_click(rest, post_id, 0)) == {"ephemeral_text": ANSWER_UNDELIVERED_NOTICE}
     host.outcome = "answered session=s1"
     assert "update" in await connector.questions.on_click(_click(rest, post_id, 1))
 

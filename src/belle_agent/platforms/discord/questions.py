@@ -22,6 +22,7 @@ from typing import Any
 from belle_agent.backend import APPROVAL, Answer, Question
 from belle_agent.click_notices import (
     ANSWER_REFUSED_NOTICE,
+    ANSWER_UNDELIVERED_NOTICE,
     APPROVAL_LABELS,
     STOP_STALE_NOTICE,
     WITHDRAWN_QUESTION_NOTE,
@@ -296,8 +297,12 @@ class Questions:
                 await self._edit(interaction, closed(WITHDRAWN_QUESTION_NOTE))
             await self._tell(interaction, WITHDRAWN_QUESTION_NOTE)
             return outcome
-        # Refused: the question stays open for somebody who may answer it.
-        await self._tell(interaction, ANSWER_REFUSED_NOTICE if outcome.startswith("refused") else NOT_SERVING_NOTICE)
+        # Refused or undelivered: the question stays open for another answer.
+        if outcome.startswith("undelivered"):
+            notice = ANSWER_UNDELIVERED_NOTICE
+        else:
+            notice = ANSWER_REFUSED_NOTICE if outcome.startswith("refused") else NOT_SERVING_NOTICE
+        await self._tell(interaction, notice)
         return outcome
 
     async def _respond(self, interaction: Mapping[str, Any], body: Mapping[str, Any]) -> str:
