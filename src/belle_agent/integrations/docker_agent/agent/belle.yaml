@@ -47,6 +47,9 @@ agents:
             X-Belle-Turn: "${headers.X-Belle-Turn}"
         # Belle runs on a private address.
         allow_private_ips: true
+      # Asks a person in the conversation of the turn. See the Docker Agent guide
+      # for the questions that Belle can ask.
+      - type: user_prompt
     hooks:
       user_prompt_submit:
         - &relay

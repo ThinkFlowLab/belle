@@ -22,7 +22,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from conformance_kit import ModelTurn
-from standin import StandIn, _chunk, said, text_of
+from standin import StandIn, _chunk, said, script, text_of
 
 from belle_agent.integrations.docker_agent import DockerAgentBackend
 
@@ -67,6 +67,20 @@ def backend(namespace: str = "") -> DockerAgentBackend:
 def asked(model: StandIn, text: str) -> list[dict]:
     """The provider requests whose last user message is ``text``."""
     return [entry["body"] for entry in list(model.log) if said(entry["body"], "user")[-1:] == [text]]
+
+
+#: The user message of a subagent's session. Its task is in its system message.
+HELPER_PROMPT = "Please proceed."
+
+
+def helper_reads_its_task(body: dict, session: str | None) -> list[dict] | int:
+    """The stand-in, where a subagent follows the directives of its task. Docker Agent puts the task in the
+    subagent's system message and asks it with a fixed user message."""
+    messages = [dict(message) for message in body.get("messages", [])]
+    users = [i for i, message in enumerate(messages) if message.get("role") == "user"]
+    if users and text_of(messages[users[-1]]) == HELPER_PROMPT:
+        messages[users[-1]]["content"] = "\n".join(said(body, "system"))
+    return script({**body, "messages": messages})
 
 
 #: Prefix of the user message that carries images and documents from a tool result.
@@ -123,9 +137,9 @@ class DockerAgentKit:
         self.backend = backend(self._namespace)
 
     def play(self, *turns: ModelTurn) -> None:
-        # Belle's agent YAML has no tool for either, so the stand-in cannot play them.
-        if any(turn.ask or turn.background for turn in turns):
-            raise ValueError("the Docker Agent kit plays no ModelTurn with ask or background")
+        # Belle's agent YAML has no tool for work the turn leaves running, so the stand-in cannot play it.
+        if any(turn.background for turn in turns):
+            raise ValueError("the Docker Agent kit plays no ModelTurn with background")
         self._script.extend(turns)
 
     async def holding(self) -> None:
@@ -149,9 +163,19 @@ class DockerAgentKit:
                 self._released.wait()
                 self._released.clear()
         turn = self._playing[key]
-        if answered < len(turn.calls):
-            name, arguments = turn.calls[answered]
-            function = {"name": self.backend.capabilities().tool_name(name), "arguments": json.dumps(dict(arguments))}
-            call = {"index": 0, "id": f"call_{uuid.uuid4().hex}", "type": "function", "function": function}
-            return [_chunk({"tool_calls": [call]}), _chunk({}, "tool_calls")]
+        # A question is the model calling Docker Agent's `user_prompt` with a choice, before its own calls.
+        if turn.ask is not None and answered == 0:
+            prompt, options = turn.ask
+            return _call("user_prompt", {"message": prompt, "schema": {"type": "string", "enum": list(options)}})
+        done = answered - (1 if turn.ask is not None else 0)
+        if done < len(turn.calls):
+            name, arguments = turn.calls[done]
+            return _call(self.backend.capabilities().tool_name(name), arguments)
         return [_chunk({"content": turn.final}), _chunk({}, "stop")]
+
+
+def _call(name: str, arguments: dict) -> list[dict]:
+    """The chunks of one tool call."""
+    function = {"name": name, "arguments": json.dumps(dict(arguments))}
+    call = {"index": 0, "id": f"call_{uuid.uuid4().hex}", "type": "function", "function": function}
+    return [_chunk({"tool_calls": [call]}), _chunk({}, "tool_calls")]

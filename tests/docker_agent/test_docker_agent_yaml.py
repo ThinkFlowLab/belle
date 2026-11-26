@@ -41,6 +41,6 @@ def test_every_hook_relays_to_belle_with_one_command_and_blocks_when_the_relay_f
 @pytest.mark.parametrize("config", [shipped(), harness()], ids=["shipped", "harness"])
 def test_the_agents_reach_no_file_or_shell_and_leave_belles_tool_traffic_as_it_is(config):
     for name, agent in config["agents"].items():
-        assert [toolset["type"] for toolset in agent["toolsets"]] == ["mcp"], name
+        assert [toolset["type"] for toolset in agent["toolsets"]] == ["mcp", "user_prompt"], name
         # Docker Agent's default secret redaction would rewrite what Belle's tools receive and return.
         assert agent["redact_secrets"] is False, name

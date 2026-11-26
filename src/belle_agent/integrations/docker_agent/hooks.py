@@ -10,6 +10,7 @@ from typing import Any
 
 from belle_agent.backend import VERDICT_ALLOW, VERDICT_ASK, ToolCall, ToolVerdict, TurnScope
 from belle_agent.capability_catalog import scope_allows
+from belle_agent.integrations.docker_agent import elicitation
 from belle_agent.scopes import LEVEL_ASK
 
 USER_PROMPT_SUBMIT = "user_prompt_submit"
@@ -28,6 +29,7 @@ RELAYED = frozenset({USER_PROMPT_SUBMIT, TOOL_GUARD, SKILL_CONTENT_GUARD})
 TRANSFER_TOOL = "transfer_task"
 
 NO_TURN = "No Belle turn runs in this session."
+REFUSES_QUESTIONS = "This run refuses questions, so nobody can answer one. Go on without asking."
 
 #: The turn that runs in a session: its conversation and its scope.
 Turn = tuple[str, TurnScope]
@@ -55,8 +57,9 @@ def answer(
     - ``user_prompt_submit`` puts the turn's system additions into each model call of the turn. Docker
       Agent stores none of them. ``user_steering_messages_submit`` puts them back after a steered message.
     - ``tool_guard`` refuses a call the tool host denies, and a ``transfer_task`` to a subagent the
-      scope does not allow. A tool the scope sets to ``ask`` asks. A question of a tool's own, such as
-      a post that widens its audience, is left to the tool server, which holds the call.
+      scope does not allow, and a ``user_prompt`` in a turn that refuses questions or with a schema Belle
+      cannot ask. A tool the scope sets to ``ask`` asks. A question of a tool's own, such as a post that
+      widens its audience, is left to the tool server, which holds the call.
     - ``skill_content_guard`` lets a skill load only where the scope allows it.
     - ``before_agent_run`` routes the turn from the entry agent to the scope's expert.
 
@@ -75,6 +78,13 @@ def answer(
         tool = core_name(str(event.get("tool_name") or ""))
         tool_input = event.get("tool_input")
         arguments: Mapping[str, Any] = tool_input if isinstance(tool_input, Mapping) else {}
+        if tool == elicitation.USER_PROMPT:
+            if scope.refuse_questions:
+                return _tool_decision("deny", REFUSES_QUESTIONS)
+            try:
+                elicitation.form(arguments.get("schema"))
+            except ValueError as exc:
+                return _tool_decision("deny", f"{tool} cannot ask this: {exc}.")
         agent = str(arguments.get("agent") or "")
         if tool == TRANSFER_TOOL and scope.subagents_available is not None and agent not in scope.subagents_available:
             return _tool_decision(

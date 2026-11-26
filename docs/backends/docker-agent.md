@@ -17,8 +17,7 @@ Use the [two-container guide](../../containers/docker-agent/README.md) for a
 quick Slack deployment. The same two containers run Belle on Mattermost, with
 the `belle.env` of the [Mattermost guide](../platforms/mattermost.md#quick-start-with-containers), and on Matrix, with the `belle.env` and the
 two volumes of the [Matrix guide](../platforms/matrix.md#quick-start-with-containers). On Matrix, a
-question of Belle's is a poll. Belle does not support the `user_prompt` toolset of Docker Agent yet, so the shipped agent has no
-tool that asks a question, and only an approval of a tool call is a poll there. The image in `containers/docker-agent/` pins a Docker
+question of Belle's is a poll. A [question of the model](#questions-from-the-model) is a poll there too when it has options. The image in `containers/docker-agent/` pins a Docker
 Agent release and holds the agent YAML and Belle's skills. For a server of your
 own, load `src/belle_agent/integrations/docker_agent/agent/belle.yaml`, and
 start Belle with a configuration that selects `backend: docker_agent`:
@@ -135,6 +134,51 @@ A scope applies on this backend as follows:
   its model, so a model chosen for one turn does not stay for the next.
 - `agent.expert`: an agent of the YAML that the entry agent `root` routes to. The YAML lists it in
   `routing.allowed_agents` of `root`, and relays `before_agent_run` from `root`.
+
+## Questions from the model
+
+The shipped agent YAML has Docker Agent's `user_prompt` toolset. When the model calls `user_prompt`, Belle
+asks the question in the conversation of the turn, and the `clicks` rule says who can answer. Belle sends
+the answer to the turn's session, by the id of the question. A question of a subagent is asked in the
+same way. The model reads the answer as the tool result: `{"action": "accept", "content": {...}}`, or
+`{"action": "decline"}`. Docker Agent writes each question to the session's event log, and also tries to
+send it on the turn's stream. Belle reads both, and asks each question once. The log holds no other
+event of the turn, so the stream stays the source of the turn. When the connection to the log drops,
+Belle reads on from the last event it had.
+
+A Belle question has one answer: free text or one option. Belle reads the `schema` argument of
+`user_prompt` as Docker Agent's own form does:
+
+| Schema | Belle asks | Content of the answer |
+| --- | --- | --- |
+| None, or an object with no property | Free text | `{"response": text}` |
+| `type: string` | Free text | `{"<title or value>": text}` |
+| `type: string` with `enum` of strings | One of the values | `{"<title or value>": value}` |
+| `type: boolean` | `true` or `false` | `{"<title or value>": true or false}` |
+| An object with one property of the types above | As for that property | `{"<property>": ...}` |
+
+The `title` of `user_prompt` and the `description` of the answer are part of the question text. A
+`default` has no effect, because a person always gives an answer. An object schema can also have
+`required`, which names only its property, and `additionalProperties: false`. Belle refuses any other
+schema in the `tool_guard` hook, before the question is asked. The model reads the part of the schema
+that Belle refuses, and what Belle accepts. Belle refuses these schemas because a platform cannot check
+them: numbers, arrays and multiple choices, more than one property, `oneOf`, `anyOf` and `allOf`, and
+any other keyword, such as `pattern`, `format`, `minLength` or `maximum`. An elicitation of another MCP
+toolset that Belle cannot ask, such as one of `url` mode, is declined. The model reads only `decline`,
+and Belle writes the reason in its log.
+
+An answer that the question cannot take, such as a value that is not an option, does not reach Docker
+Agent, and the question stays open. The same is true of an answer that Docker Agent does not take. The
+person reads that Belle could not deliver the answer.
+
+A question exists only while its turn runs. Docker Agent has no time limit for a question. If the turn
+stops or its stream breaks, Docker Agent cancels the call, and a later answer runs nothing. When Docker
+Agent closes a question without Belle's answer, for example because it cancelled the call, Belle no
+longer lists it. An answer to it runs nothing, and the platform shows that the question no longer waits.
+In a scheduled run that refuses questions, the `tool_guard` hook refuses `user_prompt`, and the
+model reads why. When a question of a run expires, Belle declines it. Where the platform cannot show the
+question, the turn fails with the reason, because Docker Agent gives the model no reason with a declined
+question.
 
 ## Agents and models
 

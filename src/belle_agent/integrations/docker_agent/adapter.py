@@ -45,6 +45,7 @@ from belle_agent.backend import (
     OP_PENDING,
     OP_STEER,
     PROGRESS_EVENTS,
+    QUESTION,
     SUBAGENT,
     Answer,
     BackendCapabilities,
@@ -63,7 +64,7 @@ from belle_agent.backend import (
     still_running,
 )
 from belle_agent.hook_server import HookServer
-from belle_agent.integrations.docker_agent import hooks
+from belle_agent.integrations.docker_agent import elicitation, hooks
 from belle_agent.integrations.docker_agent.permissions import session_permissions
 from belle_agent.integrations.docker_agent.wire import Wire, WireError
 from belle_agent.models import ConfiguredModels
@@ -120,6 +121,14 @@ TWO_APPROVALS = (
     "Docker Agent held a second tool call for a person while one waited, and an answer cannot name the call it"
     " is for, so the turn was stopped"
 )
+#: Docker Agent gives an answer that names no elicitation to the one that waits alone, which may be another.
+NO_ELICITATION_ID = "Docker Agent asked a question with no elicitation_id, so its answer could reach another question"
+#: Docker Agent waits on an elicitation that Belle declined but could not tell it so.
+DECLINE_LOST = "Docker Agent did not take Belle's decline of a question that Belle cannot ask, so the turn was stopped"
+#: The events of the session's event log that Belle reads.
+ELICITATION_EVENTS = frozenset({"elicitation_request", "elicitation_closed"})
+#: How long the adapter waits before it asks again for a session's event log, which starts with its first event.
+TAIL_POLL_SECONDS = 1.0
 #: The code of Docker Agent's ``error`` event when a hook ended the run.
 HOOK_BLOCKED = "hook_blocked"
 #: Told after the reason a hook ended the run, where Belle's hook endpoint refused a hook while the turn ran.
@@ -162,8 +171,13 @@ class _Turn:
     #: shows it, until the result of either. Docker Agent sends tool events with no session, and a delegation
     #: cannot return to an agent of its chain, so the agent name tells a subagent's calls from the turn's.
     delegations: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
-    #: What waits for a person, by id: a tool call Docker Agent holds.
-    waiting: dict[str, Question] = field(default_factory=dict)
+    #: What waits for a person, by id: a tool call Docker Agent holds, with no form, or an elicitation, with
+    #: the answer it asks for.
+    waiting: dict[str, tuple[Question, elicitation.Form | None]] = field(default_factory=dict)
+    #: The elicitations the turn has had, asked or not, closed included. The stream and the log both carry each.
+    elicited: set[str] = field(default_factory=set)
+    #: Reads the session's event log into ``events``.
+    tail: asyncio.Task[None] | None = None
     error: str = ""
     #: The code of Docker Agent's ``error``, such as ``hook_blocked`` when a hook ended the run. Empty without one.
     error_code: str = ""
@@ -274,7 +288,8 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
                 data["failed"] = True
             text = str(event.get("response") or "")
             # A held call that has a result waits on nobody, though Docker Agent ended it with no answer.
-            turn.waiting.pop(call_id, None)
+            if call_id in turn.waiting and turn.waiting[call_id][1] is None:
+                del turn.waiting[call_id]
             # The result ends the delegation it is, and the delegations that run under it.
             for agent, calls in list(turn.delegations.items()):
                 calls[:] = [(call, run) for call, run in calls if call_id not in (call, run)]
@@ -301,7 +316,7 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
             tool = turn.belle_tools.get(name, name)
             # A person approves the call as shown, so it shows all of its arguments.
             shown = json.dumps(_arguments(function.get("arguments")), ensure_ascii=False)
-            if turn.waiting:
+            if any(asked is None for _, asked in turn.waiting.values()):
                 return TurnEvent(EVENT_FAILED, text=TWO_APPROVALS)
             question = Question(
                 id=str(call.get("id") or ""),
@@ -310,7 +325,7 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
                 kind=APPROVAL,
                 tool=tool,
             )
-            turn.waiting[question.id] = question
+            turn.waiting[question.id] = (question, None)
             return TurnEvent(EVENT_QUESTION, question=question)
         case "stream_stopped":
             turn.ended = True
@@ -404,7 +419,15 @@ class DockerAgentBackend:
             operations=frozenset({OP_CANCEL, OP_ANSWER, OP_PENDING, OP_ACTIVE, OP_CATALOG, OP_CONTINUE, OP_FORGET, OP_HEALTH})
             | ({OP_STEER} if self._steers else set()),
             scope_fields=frozenset(
-                {"system_additions", "tools", "skills_available", "skills_unavailable", "subagents_available", "model"}
+                {
+                    "system_additions",
+                    "tools",
+                    "skills_available",
+                    "skills_unavailable",
+                    "subagents_available",
+                    "model",
+                    "refuse_questions",
+                }
             )
             | experts,
             tool_name_format=f"{TOOLSET}_{{name}}",
@@ -661,7 +684,8 @@ class DockerAgentBackend:
                 if item is _END:
                     ended = TurnEvent(EVENT_FAILED, text=STREAM_LOST)
                     break
-                event = translate(item, turn)
+                elicited = isinstance(item, dict) and item.get("type") in ELICITATION_EVENTS
+                event = await self._elicit(item, turn) if elicited else translate(item, turn)
                 if event is not None and event.terminal:
                     ended = event
                     break
@@ -724,11 +748,24 @@ class DockerAgentBackend:
             )
         # Recorded before the run, so that a run cut short by the end of this process counts too.
         self._settled(conversation, False)
+        since = await self._log_position(turn)
         turn.task = asyncio.create_task(self._pump(turn, body, headers))
         item = await turn.events.get()
         if isinstance(item, Exception):
             raise item
+        if since is not None:
+            turn.tail = asyncio.create_task(self._tail(turn, since))
         return item
+
+    async def _log_position(self, turn: _Turn) -> int | None:
+        """The number of the last event of the session's log, which holds the elicitations of earlier turns too.
+        None where the server does not say: the turn then reads its elicitations from its stream only."""
+        try:
+            snapshot = await self._wire.call("GET", f"/sessions/{turn.session}/snapshot") or {}
+        except (WireError, httpx.HTTPError) as exc:
+            logger.warning("docker_agent: cannot read the event log position of session %s: %s", turn.session, exc)
+            return None
+        return int(snapshot.get("last_event_seq") or 0)
 
     async def _lost(self, conversation: str, session: str) -> bool:
         """Whether the server no longer has the conversation's session, as after a reset of its database. A lost
@@ -782,6 +819,9 @@ class DockerAgentBackend:
         task = turn.task
         if task is None:
             return
+        if turn.tail is not None:
+            turn.tail.cancel()
+            await asyncio.wait({turn.tail})
         if not turn.ended:
             task.cancel()
         done, _ = await asyncio.wait({task}, timeout=STOP_TIMEOUT_SECONDS)
@@ -873,23 +913,41 @@ class DockerAgentBackend:
         return True
 
     async def answer(self, conversation: str, question_id: str, answer: Answer) -> None:
-        """Resume the tool call a turn holds for a person: run it on approval, or refuse it and go on.
+        """Answer what the running turn waits on: run a held tool call on approval or refuse it, or answer an
+        elicitation. The host's own no declines an elicitation.
 
-        An answer Docker Agent does not take raises :class:`BackendError`, and the call still waits. An answer
-        that nothing waits on raises :class:`QuestionClosed` and runs nothing.
+        An answer the question cannot take, or one Docker Agent does not take, raises :class:`BackendError`, and
+        the question still waits. An answer that nothing waits on raises :class:`QuestionClosed` and runs nothing.
         """
         turn = self._turns.get(conversation)
-        question = turn.waiting.get(question_id) if turn is not None else None
-        if turn is None or question is None:
+        waiting = turn.waiting.get(question_id) if turn is not None else None
+        if turn is None or waiting is None:
             raise QuestionClosed(f"Docker Agent no longer waits on question {question_id}")
-        body = {"confirmation": "approve"} if approves(answer) else {"confirmation": "reject", "reason": REFUSED}
-        # Docker Agent may hold the next call as soon as it has this answer, before the post returns.
-        del turn.waiting[question_id]
-        try:
-            await self._answered(question_id, f"/sessions/{turn.session}/resume", body)
-        except BackendError:
-            turn.waiting[question_id] = question
-            raise
+        asked = waiting[1]
+        if asked is None:
+            body = {"confirmation": "approve"} if approves(answer) else {"confirmation": "reject", "reason": REFUSED}
+            # Docker Agent may hold the next call as soon as it has this answer, before the post returns.
+            del turn.waiting[question_id]
+            try:
+                await self._answered(question_id, f"/sessions/{turn.session}/resume", body)
+            except BackendError:
+                turn.waiting[question_id] = waiting
+                raise
+            return
+        if answer.approved is False:
+            action, content = "decline", None
+        else:
+            try:
+                action, content = "accept", asked.content(answer.values)
+            except ValueError as exc:
+                raise BackendError(f"Docker Agent's elicitation {question_id} cannot take this answer: {exc}") from None
+        await self._elicited(turn, question_id, action, content)
+        turn.waiting.pop(question_id, None)
+
+    async def _elicited(self, turn: _Turn, elicitation_id: str, action: str, content: Any = None) -> None:
+        """Give an elicitation its answer, through the turn's session, which holds a subagent's too."""
+        body = {"action": action, "content": content, "elicitation_id": elicitation_id}
+        await self._answered(elicitation_id, f"/sessions/{turn.session}/elicitation", body)
 
     async def _answered(self, question_id: str, path: str, body: Any) -> None:
         try:
@@ -897,10 +955,76 @@ class DockerAgentBackend:
         except (WireError, httpx.HTTPError) as exc:
             raise BackendError(f"Docker Agent did not take the answer to {question_id}: {exc}") from exc
 
+    async def _elicit(self, event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
+        """Ask a person an elicitation once, though the turn's stream and the session's event log may both carry
+        it. Decline one that Belle cannot ask. A closed one waits on nobody.
+
+        Each elicitation the turn reads is the turn's, whatever session it names: one turn runs in a session at a
+        time, its subagents in the same runtime, and the log is read from where it stood as the turn began.
+        """
+        elicitation_id = str(event.get("elicitation_id") or "")
+        if event.get("type") == "elicitation_closed":
+            # Docker Agent sends it to the event log only, as it answers or cancels the elicitation.
+            turn.elicited.add(elicitation_id)
+            turn.waiting.pop(elicitation_id, None)
+            return None
+        if not elicitation_id:
+            return TurnEvent(EVENT_FAILED, text=NO_ELICITATION_ID)
+        if elicitation_id in turn.elicited:
+            return None
+        turn.elicited.add(elicitation_id)
+        try:
+            if event.get("mode") not in (None, "", "form"):
+                raise ValueError(f"Belle asks no elicitation of mode {event.get('mode')!r}")
+            asked = elicitation.form(event.get("schema"))
+        except ValueError as exc:
+            logger.warning("docker_agent: declined an elicitation Belle cannot ask: %s", exc)
+            try:
+                await self._elicited(turn, elicitation_id, "decline")
+            except BackendError as error:
+                # Docker Agent still waits on it, and nobody else can answer it.
+                return TurnEvent(EVENT_FAILED, text=f"{DECLINE_LOST}: {error}")
+            return None
+        text = elicitation.question_text(str(event.get("message") or ""), event.get("meta"), asked)
+        question = Question(id=elicitation_id, text=text, options=asked.options, kind=QUESTION)
+        turn.waiting[elicitation_id] = (question, asked)
+        return TurnEvent(EVENT_QUESTION, question=question)
+
+    async def _tail(self, turn: _Turn, since: int) -> None:
+        """Read the elicitations of the session's event log into the turn's queue, from the event after ``since``.
+
+        Docker Agent writes each elicitation to the log, and only tries to send it on the turn's stream, where
+        another stream of the same runtime can take it. The log exists from its first event on. A connection
+        that ends without ``session_exited`` dropped: the tail reads on after the last event it had.
+        """
+        while True:
+            try:
+                async with self._wire.session_events(turn.session, since) as events:
+                    async for number, event in events:
+                        since = number or since
+                        if event.get("type") == "session_exited":
+                            return
+                        if event.get("type") == "gap":
+                            # The log dropped events after ``since``. Those the turn's stream carries still come.
+                            logger.warning("docker_agent: the event log of session %s lost events", turn.session)
+                            position = await self._log_position(turn)
+                            if position is None:
+                                return
+                            since = position
+                            break
+                        if event.get("type") in ELICITATION_EVENTS:
+                            turn.events.put_nowait(event)
+            except WireError as exc:
+                if exc.status != 404:
+                    logger.warning("docker_agent: cannot read the event log of session %s: %s", turn.session, exc)
+            except (httpx.HTTPError, ValueError) as exc:
+                logger.warning("docker_agent: the event log of session %s broke: %r", turn.session, exc)
+            await asyncio.sleep(TAIL_POLL_SECONDS)
+
     async def pending(self, conversation: str) -> list[Question]:
-        """List the tool call the conversation's turn holds for a person, if any."""
+        """List what the conversation's turn waits on a person for."""
         turn = self._turns.get(conversation)
-        return list(turn.waiting.values()) if turn is not None else []
+        return [question for question, _ in turn.waiting.values()] if turn is not None else []
 
     async def active(self) -> list[str]:
         """List this deployment's conversations whose session Docker Agent is running, whoever started it."""

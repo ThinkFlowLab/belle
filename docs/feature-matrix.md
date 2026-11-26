@@ -95,7 +95,7 @@ OpenCode v2, Docker Agent and ACP are experimental.
 | Platforms | Slack, Mattermost, Matrix (1) | Slack, Mattermost, Matrix, Discord | Slack, Mattermost, Matrix, Discord | Slack, Mattermost, Matrix, Discord |
 | Per-turn tool narrowing | No (2) | Yes (3) | Yes (4) | No (31) |
 | Tool approvals | Buttons (5) | Yes (6) | Yes (6) | Harness actions (32) |
-| Questions from the model | Yes | Yes (7) | No (8) | No |
+| Questions from the model | Yes | Yes (7) | Yes (8) | No |
 | Scheduled jobs | Slack only (9) | Yes (23) | Yes (23) | Not tested |
 | Detached sessions and `/belle bg` | No (24) | Yes | Yes | Not tested |
 | `session_continue` | No (24) | Yes | Yes | Yes (36) |
@@ -119,7 +119,7 @@ OpenCode v2, Docker Agent and ACP are experimental.
 5. JiuwenSwarm's permission engine asks with buttons. A post that reaches more people than the turn's conversation asks the requester first. See [Tools and approvals](integrations/jiuwenswarm.md#tools-and-approvals).
 6. A tool at `ask` waits for a person, who answers on the platform. The `clicks.approve` rule says who may answer. See [Docker Agent scopes](backends/docker-agent.md#scopes) and [Held calls](platforms/README.md#held-calls).
 7. OpenCode's own `question` tool.
-8. Belle supports only the approval of a tool call on Docker Agent. Docker Agent has a `user_prompt` toolset that asks questions, but Belle does not support it yet.
+8. Docker Agent's `user_prompt` tool, with free text or one choice. Belle refuses a schema that asks for more. See [Questions from the model](backends/docker-agent.md#questions-from-the-model).
 9. A job delivers to Slack. A job cannot target Mattermost or Matrix. Belle refuses such a job, and a heartbeat follow-up asked for in a Mattermost or Matrix turn. See [JiuwenSwarm limits](integrations/jiuwenswarm.md#limits).
 10. OpenCode does not apply `agent.subagents`, and Belle warns at start. Belle refuses `/belle subagents use`. `deny_tools` can remove OpenCode's own `subagent` tool. See [Tool access](backends/opencode.md#tool-access).
 11. `agent.subagents` applies: Belle refuses a call to a subagent that the scope does not allow, but the model still sees it listed. Belle refuses `/belle subagents use`. The shipped agent YAML declares no subagent. See [Agents and models](backends/docker-agent.md#agents-and-models).

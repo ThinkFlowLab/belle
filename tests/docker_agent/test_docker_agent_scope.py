@@ -10,8 +10,8 @@ import json
 import pytest
 from agent_yaml import EXPERT_INSTRUCTION, SUBAGENT
 from conformance_kit import ModelTurn, worlds
-from docker_agent_kit import DockerAgentKit, asked
-from standin import said, script, text_of
+from docker_agent_kit import DockerAgentKit, asked, helper_reads_its_task
+from standin import said
 
 from belle_agent.host import OUTCOME_FAILED, OUTCOME_POSTED_FINAL
 from belle_agent.skills import packaged_skill_text
@@ -19,8 +19,6 @@ from belle_agent.skills import packaged_skill_text
 pytestmark = pytest.mark.docker_agent_server
 
 SKILL = "chat-digest"
-#: The user message of a subagent's session. Its task is in its system message.
-HELPER_PROMPT = "Please proceed."
 #: A value shaped like an access token. Docker Agent's secret redaction knows the shape.
 SECRET = "dckr_pat_" + "A" * 27
 
@@ -134,20 +132,10 @@ scopes:
     assert all("MARK-ADDED" in "\n".join(said(body, "system")) for body in steered)
 
 
-def _helper_reads_its_task(body: dict, session: str | None) -> list[dict] | int:
-    """The stand-in, where a subagent follows the directives of its task. Docker Agent puts the task in the
-    subagent's system message and asks it with a fixed user message."""
-    messages = [dict(message) for message in body.get("messages", [])]
-    users = [i for i, message in enumerate(messages) if message.get("role") == "user"]
-    if users and text_of(messages[users[-1]]) == HELPER_PROMPT:
-        messages[users[-1]]["content"] = "\n".join(said(body, "system"))
-    return script({**body, "messages": messages})
-
-
 async def test_a_subagent_calls_belles_tools_under_the_scope_of_the_turn_that_handed_it_the_task(
     build_world, model, monkeypatch
 ):
-    monkeypatch.setattr(model, "script", _helper_reads_its_task)
+    monkeypatch.setattr(model, "script", helper_reads_its_task)
     world = await build_world(
         """
 scopes:

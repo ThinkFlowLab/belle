@@ -12,12 +12,9 @@ import pytest_asyncio
 from conformance_kit import Kit, LoopbackKit, PlatformKit, World, worlds
 from scripted_backend import ScriptedBackend
 
-#: Checks that Belle cannot pass on Docker Agent yet. Docker Agent offers the toolsets that they need,
-#: but Belle's adapter and agent YAML do not support them.
+#: Checks that Belle cannot pass on Docker Agent yet. Docker Agent offers the toolset that they need,
+#: but Belle's adapter and agent YAML do not support it.
 NOT_ON_DOCKER_AGENT = {
-    "test_an_invented_question_pauses_the_turn_and_its_answer_resumes_it": "the user_prompt toolset",
-    "test_turn_stop_withdraws_a_backend_question": "the user_prompt toolset",
-    "test_every_action_the_host_asks_for_names_the_workspace_of_its_message": "the user_prompt toolset",
     "test_a_turn_ends_when_the_work_it_started_has_ended_and_posts_each_answer_once": "the background_agents toolset",
 }
 

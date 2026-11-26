@@ -4,6 +4,7 @@ import asyncio
 import base64
 import json
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +40,7 @@ from belle_agent.backend import (
     TurnScope,
 )
 from belle_agent.config import BelleConfigError
-from belle_agent.integrations.docker_agent import DockerAgentBackend, DockerAgentError, adapter, hooks
+from belle_agent.integrations.docker_agent import DockerAgentBackend, DockerAgentError, adapter, elicitation, hooks
 from belle_agent.integrations.docker_agent.wire import Wire
 from belle_agent.tools.content import ContentToolkit
 from belle_agent.tools.host import APPROVE, REJECT, BoundTurn, ToolHost
@@ -129,7 +130,16 @@ class FakeDockerAgent:
         self.run_fails = False
         #: Called as each turn request arrives, before its stream.
         self.on_run: Any = None
-        #: How Docker Agent answers a resumed call.
+        #: Each session's event log, which a session has once it logs its first event: what each connection to
+        #: it streams, in order. An event may come with its number, as ``(number, event)``.
+        self.log: dict[str, list[Any]] = {}
+        #: The ``since`` of each connection to an event log.
+        self.log_since: list[str] = []
+        #: The number of the last event of the log, as the snapshot gives it.
+        self.log_position = 7
+        self.snapshot_status = 200
+        #: How Docker Agent answers an elicitation, and a resumed call.
+        self.elicitation_status = 200
         self.resume_status = 200
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -174,6 +184,16 @@ class FakeDockerAgent:
             return httpx.Response(200, json={"steer": {"depth": self.steer_depth, "capacity": 5}})
         if path.endswith("/resume"):
             return httpx.Response(self.resume_status, json={"message": "session resumed"})
+        if path.endswith("/elicitation"):
+            return httpx.Response(self.elicitation_status, json={"message": "no elicitation request in progress"})
+        if path.endswith("/snapshot"):
+            return httpx.Response(self.snapshot_status, json={"last_event_seq": self.log_position})
+        if path.endswith("/events"):
+            self.log_since.append(request.url.params["since"])
+            connections = self.log.get(path.split("/")[2])
+            if not connections:
+                return httpx.Response(404, json={"message": "no event source for session"})
+            return _sse(connections.pop(0))
         if path.endswith("/agent/belle"):
             if path.split("/")[2] not in self.live or self.run_fails:
                 return httpx.Response(500, json={"message": "failed to run session: session not found"})
@@ -1428,3 +1448,380 @@ def test_a_configuration_that_cannot_build_the_backend_says_why(tmp_path, monkey
 
     with pytest.raises(BelleConfigError, match=message):
         launcher.create_backend(_config(tmp_path, section), tmp_path)
+
+
+def _request(by: str, session: str, elicitation_id: str, schema: dict | None = None, mode: str = "") -> dict:
+    """An elicitation as Docker Agent 1.165 sends it, on the turn's stream and in the session's event log."""
+    return {
+        "type": "elicitation_request",
+        "agent_name": by,
+        "session_id": session,
+        "message": "Which colour?",
+        "elicitation_id": elicitation_id,
+        "meta": {"cagent/title": "Colour"},
+        **({"schema": schema} if schema else {}),
+        **({"mode": mode} if mode else {}),
+    }
+
+
+def _prompt(by: str, session: str, elicitation_id: str, schema: dict | None = None, mode: str = "") -> list[dict]:
+    """A `user_prompt` call as Docker Agent 1.165 streams it, up to its elicitation."""
+    arguments = {"message": "Which colour?", "title": "Colour", **({"schema": schema} if schema else {})}
+    tool_call = _tool(by, f"call_{elicitation_id}", "user_prompt", **arguments)
+    return [tool_call, _request(by, session, elicitation_id, schema, mode)]
+
+
+def _closed(session: str, elicitation_id: str) -> dict:
+    return {"type": "elicitation_closed", "session_id": session, "elicitation_id": elicitation_id}
+
+
+CHOICE = {"type": "string", "enum": ["red", "blue"]}
+COLOUR = Question(id="e1", text="Colour: Which colour?", options=("red", "blue"))
+
+
+def _posted(fake: FakeDockerAgent) -> list[tuple[str, Any]]:
+    return [(path, body) for _, path, body in fake.calls if path.endswith("/elicitation")]
+
+
+async def test_an_elicitation_is_one_question_and_its_answer_goes_to_the_turns_session_by_its_id():
+    turn = [
+        *_started(),
+        *_prompt("root", "s1", "e1", CHOICE),
+        _result("root", "call_e1"),
+        *_prompt("helper", "sub1", "e2"),
+        _result("helper", "call_e2"),
+        *_prompt("root", "s1", "e3", CHOICE),
+        _result("root", "call_e3"),
+        {"type": "agent_choice", "session_id": "s1", "content": "done"},
+        STOPPED,
+    ]
+    fake = FakeDockerAgent(turn)
+    # The log carries each elicitation too, and each is asked once.
+    fake.log["s1"] = [[event for event in turn if event.get("type") == "elicitation_request"]]
+    backend = await _started_backend(fake)
+    answers = iter([Answer(values=("blue",)), Answer(values=("Ada",)), Answer(values=("reject",), approved=False)])
+    asked = []
+    try:
+        async for event in backend.run_turn(TurnRequest(conversation="c1", request_id="r1", text="hi")):
+            if event.kind == EVENT_QUESTION:
+                asked.append(event.question)
+                assert await backend.pending("c1") == [event.question]
+                await backend.answer("c1", event.question.id, next(answers))
+                assert await backend.pending("c1") == []
+        assert (event.kind, event.text) == (EVENT_SUCCEEDED, "done")
+        with pytest.raises(QuestionClosed):  # the turn is over
+            await backend.answer("c1", "e1", Answer(values=("red",)))
+    finally:
+        await backend.close()
+
+    assert asked == [COLOUR, Question(id="e2", text="Colour: Which colour?"), replace(COLOUR, id="e3")]
+    # The subagent's elicitation is answered through the turn's session, which runs the subagent.
+    assert _posted(fake) == [
+        ("/sessions/s1/elicitation", {"action": "accept", "content": {"value": "blue"}, "elicitation_id": "e1"}),
+        ("/sessions/s1/elicitation", {"action": "accept", "content": {"response": "Ada"}, "elicitation_id": "e2"}),
+        ("/sessions/s1/elicitation", {"action": "decline", "content": None, "elicitation_id": "e3"}),
+    ]
+
+
+def _answering(fake: FakeDockerAgent, path: str) -> tuple[Any, list[asyncio.Event]]:
+    """A server like ``fake`` that marks each answer it takes on a path ending in ``path``, in order."""
+    taken = [asyncio.Event() for _ in range(4)]
+
+    def server(request: httpx.Request) -> httpx.Response:
+        response = fake(request)
+        if request.url.path.endswith(path) and response.status_code < 400:
+            taken[sum(event.is_set() for event in taken)].set()
+        return response
+
+    return server, taken
+
+
+async def _run(backend, answer=None) -> list:
+    """The events of one turn. ``answer`` gives the answer to each question, if any."""
+    events = []
+    async for event in backend.run_turn(TurnRequest(conversation="c1", request_id="r1", text="hi")):
+        events.append(event)
+        if event.kind == EVENT_QUESTION and answer is not None:
+            await backend.answer("c1", event.question.id, answer(event.question))
+    return events
+
+
+def _red_or_text(question: Question) -> Answer:
+    return Answer(values=("red",) if question.options else ("Ada",))
+
+
+async def test_an_elicitation_only_the_event_log_carries_is_asked_a_subagents_too_across_a_dropped_log():
+    fake = FakeDockerAgent()
+    server, taken = _answering(fake, "/elicitation")
+    backend = await _started_backend(server)
+    transfer = _tool("root", "call_t", TRANSFER, agent="helper")
+
+    async def stream():
+        # Another stream of the runtime took the elicitations: this one carries none.
+        for event in [*_started(), _prompt("root", "s1", "e1", CHOICE)[0]]:
+            yield event
+        await taken[0].wait()
+        for event in [_result("root", "call_e1"), transfer, {"type": "stream_started", "session_id": "sub1"}]:
+            yield event
+        yield _prompt("helper", "sub1", "e2")[0]
+        await taken[1].wait()
+        yield _prompt("helper", "sub1", "e3")[0]
+        await taken[2].wait()
+        for event in [_result("helper", "call_e2"), _result("root", "call_t"), STOPPED]:
+            yield event
+
+    async def dropped():
+        yield 8, _request("root", "s1", "e1", CHOICE)
+        await taken[0].wait()
+        # The connection ends without session_exited: the tail reads on after event 8.
+
+    async def resumed():
+        yield 9, _closed("s1", "e1")
+        yield 10, _request("helper", "sub1", "e2")
+        await taken[1].wait()
+        # Docker Agent leaves out a session it does not know.
+        yield 11, {key: value for key, value in _request("helper", "", "e3").items() if key != "session_id"}
+        await taken[2].wait()
+
+    fake.turns, fake.log["s1"] = [stream()], [dropped(), resumed()]
+    try:
+        events = await _run(backend, _red_or_text)
+    finally:
+        await backend.close()
+
+    assert [event.question.id for event in events if event.kind == EVENT_QUESTION] == ["e1", "e2", "e3"]
+    assert events[-1].kind == EVENT_SUCCEEDED
+    assert [body["elicitation_id"] for _, body in _posted(fake)] == ["e1", "e2", "e3"]
+    assert fake.log_since[:2] == ["7", "8"]
+
+
+async def test_a_log_that_lost_events_is_read_on_from_where_it_stands_and_one_that_exits_is_left():
+    fake = FakeDockerAgent()
+    server, taken = _answering(fake, "/elicitation")
+    backend = await _started_backend(server)
+
+    async def stream():
+        for event in [*_started(), _prompt("root", "s1", "e1", CHOICE)[0]]:
+            yield event
+        await taken[0].wait()
+        yield _prompt("root", "s1", "e2", CHOICE)[0]
+        await taken[1].wait()
+        for event in [_result("root", "call_e1"), STOPPED]:
+            yield event
+
+    async def gapped():
+        fake.log_position = 20
+        yield {"type": "gap"}
+
+    async def after_the_gap():
+        yield 21, _request("root", "s1", "e1", CHOICE)
+        await taken[0].wait()
+        yield 22, {"type": "session_exited", "reason": "session ended"}
+
+    async def never_read():
+        yield 23, _request("root", "s1", "e2", CHOICE)
+
+    fake.turns, fake.log["s1"] = [stream()], [gapped(), after_the_gap(), never_read()]
+    try:
+        task = asyncio.create_task(_run(backend, _red_or_text))
+        await taken[0].wait()
+        await asyncio.sleep(adapter.TAIL_POLL_SECONDS + 0.5)
+        # The log ended for good: e2 reaches nobody, and the turn is stopped.
+        assert await backend.cancel("c1")
+        await task
+    finally:
+        await backend.close()
+
+    assert fake.log_since == ["7", "20"]
+    assert [body["elicitation_id"] for _, body in _posted(fake)] == ["e1"]
+
+
+async def test_without_the_log_position_the_turn_runs_and_asks_from_its_stream():
+    turn = [*_started(), *_prompt("root", "s1", "e1", CHOICE), _result("root", "call_e1"), STOPPED]
+    fake = FakeDockerAgent(turn)
+    fake.snapshot_status = 500
+    backend = await _started_backend(fake)
+    try:
+        events = await _run(backend, _red_or_text)
+    finally:
+        await backend.close()
+
+    assert [event.kind for event in events if event.kind in (EVENT_QUESTION, EVENT_SUCCEEDED)] == [
+        EVENT_QUESTION,
+        EVENT_SUCCEEDED,
+    ]
+    assert fake.log_since == []
+
+
+async def test_an_elicitation_that_closes_waits_on_nobody_and_a_later_answer_is_told_so():
+    fake = FakeDockerAgent()
+    backend = await _started_backend(fake)
+    closed = asyncio.Event()
+
+    async def stream():
+        for event in [*_started(), *_prompt("root", "s1", "e1", CHOICE)]:
+            yield event
+        await closed.wait()
+        for event in [_result("root", "call_e1"), STOPPED]:
+            yield event
+
+    async def log():
+        while "e1" not in backend._turns["c1"].waiting:
+            await asyncio.sleep(0.01)
+        # As Docker Agent closes an elicitation whose call it cancelled, such as a subagent's.
+        yield 8, _closed("s1", "e1")
+        closed.set()
+
+    fake.turns, fake.log["s1"] = [stream()], [log()]
+    pending = []
+    try:
+        async for event in backend.run_turn(TurnRequest(conversation="c1", request_id="r1", text="hi")):
+            if event.kind == EVENT_TOOL_RESULT:
+                pending.append(await backend.pending("c1"))
+                with pytest.raises(QuestionClosed):
+                    await backend.answer("c1", "e1", Answer(values=("red",)))
+    finally:
+        await backend.close()
+
+    assert (pending, _posted(fake)) == ([[]], [])
+
+
+async def test_an_answer_docker_agent_or_the_question_does_not_take_leaves_the_question_waiting():
+    turn = [*_started(), *_prompt("root", "s1", "e1", CHOICE), _result("root", "call_e1"), STOPPED]
+    fake = FakeDockerAgent(turn)
+    backend = await _started_backend(fake)
+    refusals = []
+    try:
+        async for event in backend.run_turn(TurnRequest(conversation="c1", request_id="r1", text="hi")):
+            if event.kind == EVENT_QUESTION:
+                for answer in (Answer(values=()), Answer(values=("red", "blue")), Answer(values=("green",))):
+                    with pytest.raises(BackendError) as refused:
+                        await backend.answer("c1", "e1", answer)
+                    refusals.append(str(refused.value))
+                fake.elicitation_status = 500
+                with pytest.raises(BackendError, match="did not take the answer to e1"):
+                    await backend.answer("c1", "e1", Answer(values=("red",)))
+                assert await backend.pending("c1") == [COLOUR]
+                fake.elicitation_status = 200
+                await backend.answer("c1", "e1", Answer(values=("red",)))
+                assert await backend.pending("c1") == []
+    finally:
+        await backend.close()
+
+    assert ["has 0 values" in refusals[0], "has 2 values" in refusals[1], "none of the options" in refusals[2]] == [
+        True
+    ] * 3
+
+
+@pytest.mark.parametrize("taken", [True, False], ids=["declined", "decline-lost"])
+async def test_an_elicitation_belle_cannot_ask_is_declined_and_a_lost_decline_stops_the_turn(taken):
+    fake = FakeDockerAgent()
+    fake.elicitation_status = 200 if taken else 500
+    server, declined = _answering(fake, "/elicitation")
+    backend = await _started_backend(server)
+
+    async def stream():
+        # The call waits on the decline, as Docker Agent's elicitation does.
+        for event in [*_started(), *_prompt("root", "s1", "e1", mode="url")]:
+            yield event
+        await declined[0].wait()
+        for event in [_result("root", "call_e1"), {"type": "agent_choice", "session_id": "s1", "content": "done"}, STOPPED]:
+            yield event
+
+    fake.turns = [stream()]
+    try:
+        events = await asyncio.wait_for(_run(backend), 5)
+    finally:
+        await backend.close()
+
+    assert EVENT_QUESTION not in [event.kind for event in events]
+    assert [body for _, body in _posted(fake)] == [{"action": "decline", "content": None, "elicitation_id": "e1"}]
+    if taken:
+        assert (events[-1].kind, events[-1].text) == (EVENT_SUCCEEDED, "done")
+    else:
+        assert events[-1].kind == EVENT_FAILED and events[-1].text.startswith(adapter.DECLINE_LOST)
+
+
+async def test_an_elicitation_without_an_id_stops_the_turn():
+    fake = FakeDockerAgent([*_started(), *_prompt("root", "s1", "")])
+    backend = await _started_backend(fake)
+    try:
+        nameless = await _events(backend)
+    finally:
+        await backend.close()
+
+    assert (nameless[-1].kind, nameless[-1].text) == (EVENT_FAILED, adapter.NO_ELICITATION_ID)
+    assert _posted(fake) == []
+
+
+@pytest.mark.parametrize(
+    ("schema", "form"),
+    [
+        (None, elicitation.Form("response")),
+        ({"type": "object"}, elicitation.Form("response")),
+        # As Docker Agent's own form reads an object that names no property: free text.
+        ({"type": "object", "properties": {}, "description": "Say"}, elicitation.Form("response", description="Say")),
+        ({"type": "string", "title": "Name"}, elicitation.Form("Name")),
+        ({"enum": ["a", "b"], "description": "Pick one"}, elicitation.Form("value", ("a", "b"), "Pick one")),
+        ({"type": "string", "enum": ["true", "false"]}, elicitation.Form("value", elicitation.BOOLEAN)),
+        ({"type": "boolean", "default": True}, elicitation.Form("value", elicitation.BOOLEAN, boolean=True)),
+        (
+            {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {"ok": {"type": "boolean"}},
+                "required": ["ok"],
+                "additionalProperties": False,
+            },
+            elicitation.Form("ok", elicitation.BOOLEAN, boolean=True),
+        ),
+    ],
+    ids=["none", "empty-object", "no-property", "string", "enum", "enum-of-true-false", "boolean", "one-property"],
+)
+def test_a_schema_of_one_answer_is_read_as_docker_agents_form_reads_it(schema, form):
+    assert elicitation.form(schema) == form
+
+
+@pytest.mark.parametrize(
+    ("schema", "reason"),
+    [
+        ("text", "schema is str, not a JSON object"),
+        ({"type": "integer"}, "schema has type 'integer'"),
+        ({"type": "array", "items": {"enum": ["a"]}}, "schema has items, which Belle cannot check"),
+        ({"type": "string", "pattern": "^a"}, "schema has pattern, which Belle cannot check"),
+        ({"minLength": 5}, "schema has minLength, which Belle cannot check"),
+        ({"allOf": [{"type": "string"}]}, "schema has allOf, which Belle cannot check"),
+        ({"type": "string", "enum": [1, 2]}, "schema.enum is not a list of strings"),
+        ({"type": "boolean", "enum": [True]}, "schema has type 'boolean' with an enum"),
+        ({"type": "array", "properties": {"a": {"type": "string"}}}, "schema has type 'array'"),
+        ({"type": "object", "properties": {"a": {}, "b": {}}}, "schema.properties has 2 properties"),
+        ({"type": "object", "properties": {"a": {}}, "required": ["b"]}, "schema.required is not a list that names"),
+        ({"type": "object", "properties": {"a": {}}, "required": [{}]}, "schema.required is not a list that names"),
+        ({"type": "object", "additionalProperties": True}, "schema.additionalProperties is not false"),
+        ({"type": "object", "properties": {"n": {"type": "number"}}}, "schema.properties.n has type 'number'"),
+    ],
+    ids=[
+        "not-object", "integer", "multiselect", "pattern", "free-text-constraint", "all-of", "enum-not-strings",
+        "boolean-enum", "array-root", "two", "required-other", "required-not-string", "additional-properties", "number",
+    ],
+)
+def test_a_user_prompt_whose_schema_belle_cannot_ask_is_refused_before_the_tool_host_is_asked(schema, reason):
+    answer, asked = _answer(_guard("user_prompt", message="Q?", schema=schema))
+
+    assert (_decision(answer), asked) == ("deny", [])
+    assert reason in answer["hook_specific_output"]["permission_decision_reason"]
+    assert elicitation.ASKS in answer["hook_specific_output"]["permission_decision_reason"]
+    allowed, asked = _answer(_guard("user_prompt", message="Q?", schema=CHOICE))
+    assert (_decision(allowed), len(asked)) == ("", 1)
+
+
+def test_a_user_prompt_in_a_turn_that_refuses_questions_is_refused_with_the_reason():
+    answer, asked = _answer(_guard("user_prompt", message="Q?"), TurnScope(refuse_questions=True))
+
+    assert (_decision(answer), asked) == ("deny", [])
+    assert answer["hook_specific_output"]["permission_decision_reason"] == hooks.REFUSES_QUESTIONS
+
+
+def test_an_answer_is_the_content_of_its_form():
+    assert elicitation.Form("ok", elicitation.BOOLEAN, boolean=True).content(["false"]) == {"ok": False}
+    assert elicitation.Form("value", elicitation.BOOLEAN).content(["false"]) == {"value": "false"}
