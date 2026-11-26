@@ -24,6 +24,7 @@ from belle_agent.backend import (
     EVENT_TOOL_CALLED,
     EVENT_TOOL_RESULT,
     EVENT_USAGE,
+    NOT_STEERED,
     OP_ACTIVE,
     OP_ANSWER,
     OP_ASK,
@@ -36,6 +37,7 @@ from belle_agent.backend import (
     OP_PENDING,
     OP_RECOVER,
     OP_REFUSE_QUESTION,
+    OP_STEER,
     RECOVERY_NOT_SUBMITTED,
     RECOVERY_RUNNING,
     RECOVERY_TERMINAL,
@@ -117,6 +119,18 @@ class FakeOpenCode:
         #: A form reply waits for this event when one is set, and answers each status here first, in order.
         self.form_reply_gate: asyncio.Event | None = None
         self.form_reply_statuses: list[int] = []
+        #: Whether a steered prompt waits in the inbox until ``deliver`` hands it over, and the ids taken back.
+        self.hold_steers = False
+        self.inbox: dict[str, dict] = {}
+        self.inbox_cancelled: list[str] = []
+        #: A steered prompt, and a lookup of a stored message, wait for these events when they are set. A steered
+        #: prompt then answers ``steer_status``, and a cancel of an inbox item ``inbox_status``.
+        self.steer_gate: asyncio.Event | None = None
+        self.message_gate: asyncio.Event | None = None
+        self.steer_status = 200
+        self.inbox_status = 204
+        #: A steered prompt that fails with ``steer_status`` is in the inbox all the same, as when only its answer is lost.
+        self.admit_failed_steers = False
         #: Session id to the model it was last switched to. A session that never switched reports none.
         self.models: dict[str, dict] = {}
         self.unmounts = 0
@@ -144,6 +158,12 @@ class FakeOpenCode:
         self.running.add(parent)
         self.emit("session.execution.started", parent)
         self.emit("session.inbox.delivered", parent, inboxID=f"msg_report_{child}")
+
+    def deliver(self, prompt_id: str, session: str = C1) -> None:
+        """Hand a held steered prompt to the session's execution, as OpenCode does at a step boundary."""
+        self.inbox.pop(prompt_id)
+        self.store("user", session, id=prompt_id)
+        self.emit("session.inbox.delivered", session, inboxID=prompt_id)
 
     def drop_stream(self) -> None:
         self.stream.put_nowait(None)
@@ -230,6 +250,15 @@ class FakeOpenCode:
             self.forms.setdefault(session, []).append(form)
             self.emit("form.created", session, form=form)
             return httpx.Response(200, json={"data": {"id": form["id"]}})
+        if path.endswith("/inbox") and request.method == "GET":
+            return httpx.Response(200, json={"data": list(self.inbox.values())})
+        if "/inbox/" in path and request.method == "DELETE":
+            if self.inbox_status != 204:
+                return httpx.Response(self.inbox_status, json={"message": "busy"})
+            inbox_id = path.rsplit("/", 1)[-1]
+            if self.inbox.pop(inbox_id, None) is not None:
+                self.inbox_cancelled.append(inbox_id)
+            return httpx.Response(204)
         if "/form/" in path and request.method == "DELETE":
             form_id = path.split("/")[5]
             self.forms[session] = [form for form in self.forms.get(session, []) if form["id"] != form_id]
@@ -261,6 +290,8 @@ class FakeOpenCode:
             page = messages[offset:offset + limit]
             return httpx.Response(200, json={"data": page, "cursor": {"next": str(offset + len(page)) if page else None}})
         if "/message/" in path:
+            if self.message_gate is not None:
+                await self.message_gate.wait()
             found = [message for message in stored if message.get("id") == path.rsplit("/", 1)[-1]]
             return httpx.Response(200, json={"data": found[0]}) if found else httpx.Response(404, json={})
         if path.endswith("/permission"):
@@ -282,6 +313,14 @@ class FakeOpenCode:
                 await self.before_prompt(body)
             if self.prompt_status != 200:
                 return httpx.Response(self.prompt_status, json={"message": "refused"})
+            if body.get("delivery") == "steer" and self.steer_gate is not None:
+                await self.steer_gate.wait()
+            if body.get("delivery") == "steer" and self.steer_status != 200 and not self.admit_failed_steers:
+                return httpx.Response(self.steer_status, json={"message": "refused"})
+            if body.get("delivery") == "steer" and self.hold_steers:
+                self.inbox[body["id"]] = body
+                status = self.steer_status if self.admit_failed_steers else 200
+                return httpx.Response(status, json={"data": {"id": body["id"]}})
             # A prompt with a known message id is answered 200 and runs nothing.
             if not any(message.get("id") == body["id"] for message in stored):
                 self.store("user", session, id=body["id"])
@@ -957,7 +996,7 @@ async def test_a_reader_that_leaves_as_the_host_stops_leaves_the_turn_running(op
 async def test_cancel_interrupts_the_running_turn_only(opencode, backend):
     assert backend.capabilities().operations == {OP_CANCEL, OP_ACTIVE, OP_RECOVER, OP_PENDING, OP_ASK, OP_ANSWER,
                                                  OP_REFUSE_QUESTION, OP_CATALOG, OP_CONTINUE, OP_FORGET,
-                                                 OP_PEEK_HISTORY, OP_HEALTH}
+                                                 OP_PEEK_HISTORY, OP_HEALTH, OP_STEER}
     assert backend.capabilities().scheduler == ""
     assert backend.capabilities().tool_result_max_chars == 0
     assert await backend.cancel("c1") is False
@@ -1755,6 +1794,202 @@ async def test_recovery_restores_a_pending_question_and_can_cancel_the_turn(back
     await backend.answer("c1", "frm_recover", Answer(values=("yes",)))
     assert opencode.form_replies[-1] == ("frm_recover", {"answer": {"answer": "yes"}})
     assert await backend.cancel("c1") is True
+
+
+def _steered(text: str, request_id: str = "s1") -> TurnRequest:
+    return TurnRequest(conversation="c1", request_id=request_id, text=text)
+
+
+def _steer_prompt(opencode: FakeOpenCode) -> dict:
+    return next(body for _, path, body in opencode.calls if path.endswith("/prompt") and body.get("delivery") == "steer")
+
+
+async def test_a_steered_message_reaches_the_running_execution(backend, opencode):
+    assert OP_STEER in backend.capabilities().operations
+    stream = await _accepted(backend)
+
+    assert await backend.steer(_steered("also this")) is True
+    assert _steer_prompt(opencode) == {"id": message_id("", "c1", "s1"), "text": "also this", "delivery": "steer"}
+    opencode.emit("session.step.started")
+    opencode.emit("session.text.ended", text="both answered")
+    opencode.emit("session.step.ended", finish="stop")
+    opencode.emit("session.execution.succeeded")
+
+    ended = (await _rest(stream))[-1]
+    assert (ended.kind, ended.text, NOT_STEERED in ended.data) == (EVENT_SUCCEEDED, "both answered", False)
+    # A request that already ran, and a conversation with no running turn, take nothing.
+    assert await backend.steer(_steered("again")) is False
+
+
+async def test_a_message_steered_after_the_last_step_waits_for_the_execution_that_reads_it(backend, opencode):
+    opencode.hold_steers = True
+    stream = await _accepted(backend)
+    assert await backend.steer(_steered("one more thing")) is True
+
+    opencode.emit("session.step.started")
+    opencode.emit("session.text.ended", text="first")
+    opencode.emit("session.step.ended", finish="stop")
+    opencode.emit("session.execution.succeeded")
+    opencode.emit("session.execution.started")
+    opencode.deliver(message_id("", "c1", "s1"))
+    opencode.emit("session.step.started")
+    opencode.emit("session.text.ended", text="second")
+    opencode.emit("session.step.ended", finish="stop")
+    opencode.emit("session.execution.succeeded")
+
+    ended = (await _rest(stream))[-1]
+    # The answer written before the model read the steered message is no part of the final.
+    assert (ended.kind, ended.text) == (EVENT_SUCCEEDED, "second")
+    assert opencode.inbox_cancelled == []
+
+
+async def test_a_stopped_turn_takes_back_its_unread_steered_message_and_names_it(backend, opencode):
+    opencode.hold_steers = True
+    stream = await _accepted(backend)
+    assert await backend.steer(_steered("never read")) is True
+
+    assert await backend.cancel("c1") is True
+    ended = (await _rest(stream))[-1]
+
+    assert ended.kind == EVENT_INTERRUPTED and ended.data[NOT_STEERED] == ["s1"]
+    assert opencode.inbox_cancelled == [message_id("", "c1", "s1")]
+    # OpenCode holds nothing of it, so it runs again under its own id, once.
+    again = backend.run_turn(TurnRequest(conversation="c1", request_id="s1", text="never read"))
+    assert (await anext(again)).kind == EVENT_ACCEPTED
+    opencode.emit("session.execution.succeeded")
+    assert (await _rest(again))[-1].kind == EVENT_SUCCEEDED
+
+
+def _steer_prompts(opencode: FakeOpenCode) -> list[dict]:
+    return [body for _, path, body in opencode.calls if path.endswith("/prompt") and body.get("delivery") == "steer"]
+
+
+async def test_a_message_steered_while_the_turn_decides_its_end_is_not_taken(backend, opencode):
+    stream = await _accepted(backend)
+    opencode.message_gate = asyncio.Event()
+    steering = asyncio.create_task(backend.steer(_steered("too late")))
+    await asyncio.sleep(0.05)
+
+    opencode.emit("session.execution.succeeded")
+    ended = asyncio.create_task(_rest(stream))
+    await asyncio.sleep(0.05)
+    opencode.message_gate.set()
+
+    assert await steering is False
+    assert (await ended)[-1].kind == EVENT_SUCCEEDED
+    assert _steer_prompts(opencode) == []
+
+
+async def test_a_message_steered_while_the_turn_ends_is_taken_back_before_the_turn_ends(backend, opencode):
+    opencode.hold_steers = True
+    stream = await _accepted(backend)
+    opencode.steer_gate = asyncio.Event()
+    steering = asyncio.create_task(backend.steer(_steered("in flight")))
+    await asyncio.sleep(0.05)
+
+    opencode.emit("session.execution.interrupted", reason="user")
+    ended = asyncio.create_task(_rest(stream))
+    await asyncio.sleep(0.05)
+    # The end of the turn waits for the message that is being sent.
+    assert not ended.done()
+    opencode.steer_gate.set()
+
+    assert await steering is True
+    last = (await ended)[-1]
+    assert last.kind == EVENT_INTERRUPTED and last.data[NOT_STEERED] == ["s1"]
+    assert opencode.inbox_cancelled == [message_id("", "c1", "s1")] and opencode.inbox == {}
+
+
+async def test_a_steered_message_delivered_after_the_turn_ended_is_stopped_and_not_run_again(backend, opencode):
+    stream = await _accepted(backend)
+    opencode.steer_gate = asyncio.Event()
+    steering = asyncio.create_task(backend.steer(_steered("unread")))
+    await asyncio.sleep(0.05)
+
+    opencode.emit("session.execution.failed", error={"type": "provider.x", "message": "broke"})
+    ended = asyncio.create_task(_rest(stream))
+    await asyncio.sleep(0.05)
+    # OpenCode delivers it to an execution of its own, which no turn reads.
+    opencode.steer_gate.set()
+
+    assert await steering is True
+    last = (await ended)[-1]
+    # Its tools may have run already: a second run of it could repeat them, so it is not handed back.
+    assert last.kind == EVENT_FAILED and NOT_STEERED not in last.data
+    assert f"/api/session/{C1}/interrupt" in opencode.paths()
+
+
+async def test_a_steered_message_that_cannot_be_taken_back_is_not_run_again(backend, opencode):
+    opencode.hold_steers = True
+    opencode.inbox_status = 503
+    stream = await _accepted(backend)
+    assert await backend.steer(_steered("stuck")) is True
+
+    assert await backend.cancel("c1") is True
+
+    # OpenCode may still deliver it, so the host does not run it a second time.
+    assert NOT_STEERED not in (await _rest(stream))[-1].data
+
+
+async def test_a_turn_that_waits_only_for_a_steered_message_ends_when_the_message_is_not_taken(backend, opencode):
+    stream = await _accepted(backend)
+    opencode.steer_gate = asyncio.Event()
+    opencode.steer_status = 503
+    steering = asyncio.create_task(backend.steer(_steered("refused")))
+    await asyncio.sleep(0.05)
+    opencode.emit("session.step.started")
+    opencode.emit("session.text.ended", text="done")
+    opencode.emit("session.step.ended", finish="stop")
+    opencode.emit("session.execution.succeeded")
+    await asyncio.sleep(0.05)
+
+    opencode.steer_gate.set()
+
+    assert await steering is False
+    last = (await _rest(stream))[-1]
+    assert (last.kind, last.text, NOT_STEERED in last.data) == (EVENT_SUCCEEDED, "done", False)
+    # It ends as any turn does: an idle session is not interrupted.
+    assert f"/api/session/{C1}/interrupt" not in opencode.paths()
+
+
+async def test_a_steered_message_whose_answer_is_lost_after_opencode_took_it_stays_the_turns(backend, opencode):
+    opencode.hold_steers = True
+    opencode.admit_failed_steers = True
+    opencode.steer_status = 503
+    stream = await _accepted(backend)
+
+    # Not taken would make the host run it as its own turn while OpenCode still holds it: it would run twice.
+    assert await backend.steer(_steered("held")) is True
+    opencode.deliver(message_id("", "c1", "s1"))
+    opencode.emit("session.step.started")
+    opencode.emit("session.text.ended", text="read it")
+    opencode.emit("session.step.ended", finish="stop")
+    opencode.emit("session.execution.succeeded")
+
+    last = (await _rest(stream))[-1]
+    assert (last.kind, last.text, NOT_STEERED in last.data) == (EVENT_SUCCEEDED, "read it", False)
+
+
+async def test_a_turn_that_is_being_stopped_takes_no_steered_message(backend, opencode):
+    opencode.reports_interrupt = False
+    stream = await _accepted(backend)
+
+    assert await backend.cancel("c1") is True
+    assert await backend.steer(_steered("after the stop")) is False
+
+    assert _steer_prompts(opencode) == []
+    opencode.emit("session.execution.interrupted", reason="user")
+    await _rest(stream)
+
+
+async def test_a_recovered_turn_takes_no_steered_message(backend, opencode):
+    request = TurnRequest("c1", "recovered", "go on")
+    opencode.store("user", C1, id=message_id("", "c1", request.request_id))
+    opencode.running.add(C1)
+
+    assert (await backend.recover(request)).state == RECOVERY_RUNNING
+    assert await backend.steer(_steered("nobody reads this")) is False
+    assert _steer_prompts(opencode) == []
 
 
 def _open_form(opencode: FakeOpenCode, *fields: dict, form_id: str = "frm_q") -> None:

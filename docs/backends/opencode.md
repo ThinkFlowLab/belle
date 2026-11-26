@@ -166,6 +166,29 @@ the shared rules. A setting that the OpenCode backend cannot apply produces a
 warning at startup. The [feature matrix](../feature-matrix.md#harnesses)
 compares the harnesses.
 
+## Messages during a turn
+
+Under `delivery.mid_turn: steer`, Belle sends a message that joins a running
+turn as a prompt with `delivery: steer`. OpenCode gives it to the model before
+the next model call of the session's execution. A message that arrives after
+the last model call starts the next execution, and the turn ends with that
+execution. The model answers again with the steered message in view, so
+the final holds only the answers written after OpenCode delivered the last
+steered message.
+
+A turn takes steered messages from when its prompt is sent until it knows how
+it ends, or until a person stops it. The end of the turn waits for a message
+that is being sent. Then the turn cancels each steered message whose
+delivery it did not read, and reads back what OpenCode still holds. A message
+that OpenCode confirms it no longer holds never ran, and runs with the others
+like it as one turn, before any other message of the conversation. A message that
+OpenCode delivered after the turn ended started an execution that no turn
+reads, so Belle stops that execution. Belle does not run that message again,
+nor one that OpenCode may still deliver, because its tools could run twice.
+The log names each such message. A steered prompt whose answer is lost counts
+as taken when OpenCode holds it. A turn that Belle recovered after a restart
+takes no steered message, and neither does a turn while Belle stops.
+
 ## Questions
 
 OpenCode puts a question to a person as a form. A form has one or more

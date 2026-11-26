@@ -110,7 +110,7 @@ OpenCode v2, Docker Agent and ACP are experimental.
 | Task models | Yes (16) | Yes | Yes | Yes |
 | Second Brain | Yes (17) | Yes (18) | Yes (18) | Not tested |
 | Stop a turn | Yes | Yes | Yes (19) | Yes (35) |
-| Message joins a running turn | Slack only (20) | No (21) | Yes (22) | No (21) |
+| Message joins a running turn | Slack only (20) | Yes (37) | Yes (22) | No (21) |
 
 1. Slack replaces JiuwenSwarm's built-in connector. Mattermost and Matrix use separate Belle extensions. JiuwenSwarm does not mount Belle's Matrix tools. See [Use Belle with JiuwenSwarm](integrations/jiuwenswarm.md#matrix-channel-experimental).
 2. While a scope sets `permissions.tools`, Belle refuses every tool call of every Slack and Mattermost turn, because the tool call does not know its conversation. See [Tool permissions of a scope](integrations/jiuwenswarm.md#tool-permissions-of-a-scope).
@@ -148,3 +148,4 @@ OpenCode v2, Docker Agent and ACP are experimental.
 34. The pinned ACP SDK has no client method for `session/delete`, so Belle deletes no ACP session.
 35. A stop sends `session/cancel`. See [Turns](backends/acp.md#turns).
 36. Belle checked it against a scripted ACP agent only. After a Belle restart, a continuation needs an agent that advertises `session/resume` or `session/load`. See [Restarts](backends/acp.md#restarts). On a shared connection, a continuation also fails after a stop that the agent did not answer in time. See [Turns](backends/acp.md#turns).
+37. Under `delivery.mid_turn: steer`. See [Messages during a turn](backends/opencode.md#messages-during-a-turn).

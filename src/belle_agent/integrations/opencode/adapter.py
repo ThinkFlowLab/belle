@@ -29,6 +29,7 @@ from belle_agent.backend import (
     EVENT_TOOL_CALLED,
     EVENT_TOOL_RESULT,
     EVENT_USAGE,
+    NOT_STEERED,
     OP_ACTIVE,
     OP_ANSWER,
     OP_ASK,
@@ -41,6 +42,7 @@ from belle_agent.backend import (
     OP_PENDING,
     OP_RECOVER,
     OP_REFUSE_QUESTION,
+    OP_STEER,
     PROGRESS_EVENTS,
     QUESTION,
     RECOVERY_NOT_SUBMITTED,
@@ -128,6 +130,11 @@ RECONCILE_SETTLE_SECONDS = 0.5
 
 ALREADY_RUNNING = "A turn is already running in this conversation."
 ALREADY_RAN = "This request has already run in this conversation."
+# What OpenCode holds of a steered prompt.
+HELD_INBOX = "inbox"
+HELD_DELIVERED = "delivered"
+HELD_NONE = "none"
+HELD_UNKNOWN = "unknown"
 #: Why a form is cancelled when a field is left to ask and no turn of Belle's reads the session to ask it.
 FORM_UNREAD = "Belle reads no turn of this session, so the next question of the form reached nobody."
 EXECUTION_LOST = "OpenCode stopped running the turn before it ended."
@@ -205,6 +212,8 @@ class _Turn:
     children: dict[str, str] = field(default_factory=dict)
     #: The children's reports the session holds and has handed to no execution yet.
     inbox: set[str] = field(default_factory=set)
+    #: The prompt id of each message steered into the turn that OpenCode has not delivered yet, to its request id.
+    steered: dict[str, str] = field(default_factory=dict)
     #: Form id to the open forms of the session, with the answers given so far.
     forms: dict[str, "_Form"] = field(default_factory=dict)
     #: The forms of ``forms`` that have no question to ask, for the turn's reader to reply to or to cancel.
@@ -214,6 +223,11 @@ class _Turn:
     #: The turn has ended for Belle: no answer reaches it. Set under ``lock``, which an answer holds while it is sent.
     closed: bool = False
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    #: The turn's reader takes steered messages: from when its prompt is sent until it decides how the turn ends.
+    #: A message is steered under ``lock``, so the end of the turn waits for one that is being sent.
+    steerable: bool = False
+    #: The session's execution has ended, and the turn waits only for what OpenCode runs the session again for.
+    idle: bool = False
     #: When the turn began, by the monotonic clock: a refusal of the relay endpoint since then is this turn's to name.
     began: float = field(default_factory=time.monotonic)
 
@@ -304,6 +318,9 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
             return _reported(data, turn)
         case "session.inbox.delivered":
             turn.inbox.discard(data.get("inboxID"))
+            if turn.steered.pop(data.get("inboxID"), None) is not None:
+                # The model answers anew with the steered message in view, so what it wrote before is no answer.
+                turn.answers.clear()
         case "session.usage.updated":
             cost = data.get("cost")
             spent = cost - turn.cost_before if isinstance(cost, (int, float)) else None
@@ -313,10 +330,12 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
             return TurnEvent(EVENT_USAGE, data=usage)
         case "session.execution.succeeded":
             _answered(turn)
-            # OpenCode runs the session once more for each child that reports. The turn ends with the last of them.
-            if turn.children or turn.inbox:
-                return None
-            return TurnEvent(EVENT_SUCCEEDED, text=_final(turn.answers))
+            # OpenCode runs the session once more for each child that reports, and for a message steered in after
+            # the execution's last step. The turn ends with the last of them.
+            turn.idle = True
+            return _settled(turn)
+        case "session.execution.started":
+            turn.idle = False
         case "session.execution.failed":
             # The provider's answer body travels in `error.response`. It stays behind.
             return _execution_failed(turn, error)
@@ -338,6 +357,14 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
             turn.asked.add(form.question.id)
             return TurnEvent(EVENT_QUESTION, question=form.question)
     return None
+
+
+def _settled(turn: _Turn) -> TurnEvent | None:
+    """The end of a turn whose execution succeeded, unless OpenCode runs the session again for its children or for
+    a message steered into it."""
+    if not turn.idle or turn.children or turn.inbox or turn.steered:
+        return None
+    return TurnEvent(EVENT_SUCCEEDED, text=_final(turn.answers))
 
 
 def _translate_child(event: Mapping[str, Any], turn: _Turn, attribution: str) -> TurnEvent | None:
@@ -454,6 +481,9 @@ def _replay(messages: Sequence[Mapping[str, Any]], turn: _Turn | None = None) ->
     turn.continuing = False
     _step_started(turn)
     for message in messages:
+        if message.get("type") == "user":
+            # A user message after the turn's prompt was steered in. The answers before it are no answers.
+            turn.answers.clear()
         if message.get("type") != "assistant":
             continue
         _step_started(turn)
@@ -804,7 +834,7 @@ class OpenCodeBackend:
         return BackendCapabilities(
             backend="opencode",
             operations=frozenset({OP_CANCEL, OP_ACTIVE, OP_RECOVER, OP_PENDING, OP_ASK, OP_ANSWER, OP_REFUSE_QUESTION,
-                                  OP_CATALOG, OP_CONTINUE, OP_FORGET, OP_PEEK_HISTORY, OP_HEALTH}),
+                                  OP_CATALOG, OP_CONTINUE, OP_FORGET, OP_PEEK_HISTORY, OP_HEALTH, OP_STEER}),
             scope_fields=frozenset(
                 {"system_additions", "tools", "skills_required", "skills_available", "skills_unavailable", "model"}
             ),
@@ -1342,6 +1372,8 @@ class OpenCodeBackend:
             ]
             # The turn goes on from what its session stored, and the events that follow continue it.
             _replay(newer, turn)
+            for message in newer:
+                turn.steered.pop(message.get("id"), None)
             unreported = _unreported(newer)
             turn.children = {child: call for child, call in unreported.items() if child in active}
             turn.inbox.clear()
@@ -1454,17 +1486,22 @@ class OpenCodeBackend:
                 await self._ensure_mount()
                 stop = turn.posted = True
                 await self._wire.call("POST", f"/api/session/{session}/prompt", prompt)
+                turn.steerable = True
                 yield TurnEvent(EVENT_ACCEPTED)
             while stop:
                 event = await turn.events.get()
                 if event is _CANCELLED:
+                    turn.steerable = False
                     ended = TurnEvent(EVENT_INTERRUPTED)
                     break
                 if isinstance(event, TurnEvent):
                     # The next question of a form, put by the answer to the one before it.
                     yield event
                     continue
-                ended = await self._reconcile(session, turn) if event is _RESUBSCRIBED else _in_session(session, translate(event, turn))
+                if event is _RESUBSCRIBED:
+                    ended = await self._reconcile(session, turn)
+                else:
+                    ended = _in_session(session, _settled(turn) if event is _RECHECK else translate(event, turn))
                 while turn.settle:
                     await self._settle_form(session, turn, turn.settle.pop(0))
                 if ended is None:
@@ -1475,6 +1512,7 @@ class OpenCodeBackend:
                             yield TurnEvent(EVENT_QUESTION, question=question)
                     continue
                 if ended.terminal:
+                    turn.steerable = False
                     if turn.gapped and event is not _RESUBSCRIBED:
                         # The text of a step that ended unseen is not in what was read. The session has it.
                         ended = await self._reconcile(session, turn, terminal_seen=True) or ended
@@ -1499,8 +1537,16 @@ class OpenCodeBackend:
             try:
                 async with turn.lock:
                     turn.closed = True
+                    turn.steerable = False
                 # A reader that leaves as the host stops leaves the turn running. The children of an ended turn still stop.
-                if stop and not (left and self._shutting_down):
+                kept = left and self._shutting_down
+                if turn.steered and not kept:
+                    # Before any interrupt, which could let OpenCode deliver a steered message to an execution it stops.
+                    unread, started = await self._unsteer(session, turn)
+                    stop = stop or started
+                    if unread and not left:
+                        ended = replace(ended, data={**ended.data, NOT_STEERED: unread})
+                if stop and not kept:
                     await self._stop(session, turn)
             finally:
                 if self._relay is not None:
@@ -1536,6 +1582,50 @@ class OpenCodeBackend:
         except TimeoutError:
             logger.warning("opencode: session %s did not report that all its interrupted work ended", session)
 
+    async def _unsteer(self, session: str, turn: _Turn) -> tuple[list[str], bool]:
+        """Take back the messages steered into an ended turn whose delivery it did not read.
+
+        Return the request ids of those that OpenCode confirms it no longer holds, for the host to run again, and
+        whether OpenCode delivered one of them all the same. That one started an execution that no turn reads, which
+        is to be stopped. OpenCode answers the cancel of an item it already delivered as it answers any cancel
+        (``server/src/handlers/session.ts`` drops the conflict), so what it holds is read back afterwards. A message
+        that OpenCode delivered, or may still deliver, is never run again: its tools could run twice.
+        """
+        unread, started = [], False
+        for prompt_id, request_id in list(turn.steered.items()):
+            with contextlib.suppress(WireError, httpx.HTTPError):
+                await self._wire.call("DELETE", f"/api/session/{session}/inbox/{prompt_id}")
+            held = await self._held(session, prompt_id)
+            if held == HELD_NONE:
+                unread.append(request_id)
+            elif held == HELD_DELIVERED:
+                started = True
+                logger.warning(
+                    "opencode: a message steered into a turn reached the session after the turn ended. Its execution is"
+                    " stopped, and it is not run again: session=%s message=%s", session, prompt_id,
+                )
+            else:
+                logger.warning(
+                    "opencode: a message steered into a turn could not be taken back, and may still reach the session."
+                    " It is not run again: session=%s message=%s", session, prompt_id,
+                )
+        return unread, started
+
+    async def _held(self, session: str, prompt_id: str) -> str:
+        """Say whether OpenCode holds a steered prompt in its inbox, delivered it, holds none, or cannot be asked.
+
+        An item leaves the inbox only to be delivered, and then is a message. So the inbox is read first: an item
+        that is delivered between the two reads is found as a message.
+        """
+        try:
+            inbox = await self._wire.call("GET", f"/api/session/{session}/inbox") or ()
+            if any(item.get("id") == prompt_id for item in inbox):
+                return HELD_INBOX
+            return HELD_DELIVERED if await self._ran(session, prompt_id) else HELD_NONE
+        except (WireError, httpx.HTTPError) as exc:
+            logger.warning("opencode: what the session holds of a steered message cannot be read: %s", exc)
+            return HELD_UNKNOWN
+
     async def _interrupt(self, session: str) -> bool:
         try:
             answer = await self._wire.call("POST", f"/api/session/{session}/interrupt", {})
@@ -1545,17 +1635,56 @@ class OpenCodeBackend:
         return bool(isinstance(answer, Mapping) and answer.get("interrupted"))
 
     def shutting_down(self) -> None:
+        """Take no more steered messages. One already steered reaches the turn, which OpenCode runs on."""
         self._shutting_down = True
+        for turn in self._turns.values():
+            turn.steerable = False
 
     async def cancel(self, conversation: str) -> bool:
         session = session_id(self._namespace, conversation)
         turn = self._turns.get(session)
+        if turn is not None:
+            # A turn that stops takes no more steered messages.
+            turn.steerable = False
         if turn is not None and turn.children:
             # The session may be idle while a child runs, and an interrupt of it stops no child. The turn's
             # reader stops all of it.
             turn.events.put_nowait(_CANCELLED)
             return True
         return await self._interrupt(session)
+
+    async def steer(self, request: TurnRequest) -> bool:
+        """Put a message into the running turn of its conversation. Return whether OpenCode took it.
+
+        OpenCode reads a steered prompt before the next model call of the session's execution. A message that
+        arrives after the last model call starts the next execution, and the turn ends with that one.
+        """
+        session = session_id(self._namespace, request.conversation)
+        turn = self._turns.get(session)
+        prompt_id = message_id(self._namespace, request.conversation, request.request_id)
+        if turn is None or request.files:
+            return False
+        async with turn.lock:
+            try:
+                # A known message id is answered 200 and runs nothing, so the turn would wait for it in vain.
+                if not turn.steerable or await self._ran(session, prompt_id) or not turn.steerable:
+                    return False
+                turn.steered[prompt_id] = request.request_id
+                await self._wire.call(
+                    "POST", f"/api/session/{session}/prompt", {"id": prompt_id, "text": request.text, "delivery": "steer"}
+                )
+            except (WireError, httpx.HTTPError) as exc:
+                logger.warning("opencode: session %s may not have taken a steered message: %s", session, exc)
+                if prompt_id not in turn.steered:
+                    return False
+                # A prompt whose answer failed may have reached OpenCode all the same. Only one that OpenCode does not
+                # hold is not taken: the host runs that one as a turn of its own, and nothing runs twice.
+                if await self._held(session, prompt_id) != HELD_NONE:
+                    return True
+                turn.steered.pop(prompt_id, None)
+                turn.events.put_nowait(_RECHECK)
+                return False
+        return True
 
     async def ask(self, conversation: str, question: Question) -> str:
         """Put a question Belle invents, as a form on the wire. Return its id.
