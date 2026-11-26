@@ -1,4 +1,4 @@
-"""A backend question stays open until the backend takes its answer."""
+"""A backend question stays open until the backend takes its answer, and closes where the backend no longer waits."""
 
 import asyncio
 from types import SimpleNamespace
@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 from conformance_kit import LoopbackKit, worlds
 from scripted_backend import ScriptedBackend
 
-from belle_agent.backend import Answer, BackendError, Question
+from belle_agent.backend import Answer, BackendError, Question, QuestionClosed
 
 QUESTION = Question(id="q1", text="Colour?", options=("red", "blue"))
 KEY = ("loopback", "q1")
@@ -52,6 +52,15 @@ async def test_an_answer_the_backend_does_not_take_leaves_the_question_open_for_
         answered = await world.platform.inject(world.answer_to(shown, values=("red",)))
         assert answered.startswith("answered")
         assert world.kit.answers[-1][2] == Answer(values=("red",))
+        assert KEY not in world.host._questions
+
+
+async def test_a_question_the_backend_no_longer_waits_on_closes_for_the_answerer(tmp_path):
+    async with worlds(Refuses(QuestionClosed("it closed")), tmp_path, LoopbackKit()) as build:
+        world = await build()
+        shown = await _asked(world)
+
+        assert await world.platform.inject(world.answer_to(shown, values=("red",))) == "ignored:question-not-waiting"
         assert KEY not in world.host._questions
 
 

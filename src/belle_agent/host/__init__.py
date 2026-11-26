@@ -59,6 +59,7 @@ from belle_agent.backend import (
     BackendHealth,
     PeekHistoryPart,
     Question,
+    QuestionClosed,
     ToolCall,
     TurnEvent,
     TurnRequest,
@@ -2740,6 +2741,12 @@ class ConversationHost(SessionRuns, ScheduledTurns, HostCommands, EventAdmission
         self._answering[key] = asyncio.Event()
         try:
             await self._backend.answer(turn.conversation, answer.question_id, answer.answer)
+        except QuestionClosed as exc:
+            logger.info("%s question closed before its answer: question=%s reason=%s", answer.platform, answer.question_id, exc)
+            if self._questions.get(key) is turn:
+                del self._questions[key]
+            self._cancel_question_timer(key)
+            return "ignored:question-not-waiting"
         except BackendError as exc:
             logger.warning("%s backend did not take an answer: question=%s reason=%s", answer.platform, answer.question_id, exc)
             return f"undelivered:backend {exc}"

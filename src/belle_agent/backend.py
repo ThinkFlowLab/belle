@@ -441,6 +441,10 @@ class BackendError(Exception):
     """A backend cannot serve as it stands. The message names the cause, for whoever started it."""
 
 
+class QuestionClosed(BackendError):
+    """Nothing waits for the answer any more: the question closed, or its turn ended. Nothing ran."""
+
+
 #: The text of a turn that failed because its conversation must exist and the harness no longer has it.
 CONVERSATION_UNAVAILABLE = "backend_conversation_unavailable: the harness no longer has this conversation"
 
@@ -510,6 +514,7 @@ class Backend(Protocol):
         """Deliver a person's answer to a waiting question.
 
         Raise :class:`BackendError` for an answer that the backend cannot deliver. The question then still waits.
+        Raise :class:`QuestionClosed` where the question no longer waits.
         """
 
     async def refuse_question(self, conversation: str, question_id: str, reason: str) -> None:
