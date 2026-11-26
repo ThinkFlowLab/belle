@@ -52,10 +52,26 @@ class Wire:
     ) -> AsyncIterator[AsyncIterator[dict[str, Any]]]:
         """Run a turn and yield its events. Leaving the block closes the stream, which stops the turn."""
         path = f"/sessions/{session}/agent/{agent}"
-        stream = self._client.stream("POST", path, json=body, headers=dict(headers), timeout=_STREAM_TIMEOUT)
-        async with stream as response:
+        async with self._stream("POST", path, json=body, headers=dict(headers)) as events:
+            yield (event async for _, event in events)
+
+    @contextlib.asynccontextmanager
+    async def session_events(
+        self, session: str, since: int
+    ) -> AsyncIterator[AsyncIterator[tuple[int, dict[str, Any]]]]:
+        """Tail the session's event log after the event numbered ``since``, each event with its number. A control
+        event, such as ``gap``, has number 0. A session that has logged nothing yet has no log: that raises a
+        :class:`WireError` with status 404."""
+        async with self._stream("GET", f"/sessions/{session}/events", params={"since": since}) as events:
+            yield events
+
+    @contextlib.asynccontextmanager
+    async def _stream(
+        self, method: str, path: str, **request: Any
+    ) -> AsyncIterator[AsyncIterator[tuple[int, dict[str, Any]]]]:
+        async with self._client.stream(method, path, timeout=_STREAM_TIMEOUT, **request) as response:
             if response.status_code >= 400:
-                raise WireError("POST", path, response.status_code, _reason(await response.aread()))
+                raise WireError(method, path, response.status_code, _reason(await response.aread()))
             yield _events(response)
 
     async def close(self) -> None:
@@ -63,9 +79,14 @@ class Wire:
         await self._client.aclose()
 
 
-async def _events(response: httpx.Response) -> AsyncIterator[dict[str, Any]]:
+async def _events(response: httpx.Response) -> AsyncIterator[tuple[int, dict[str, Any]]]:
+    """The events of a stream, each with the number its ``id`` field gives, or 0."""
+    number = 0
     async for line in response.aiter_lines():
-        if line.startswith("data:"):
+        if line.startswith("id:"):
+            number = int(line[3:])
+        elif line.startswith("data:"):
             event = json.loads(line[5:])
             if isinstance(event, dict):
-                yield event
+                yield number, event
+            number = 0

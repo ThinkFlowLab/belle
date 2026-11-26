@@ -39,6 +39,7 @@ from belle_agent.backend import (
 )
 from belle_agent.config import BelleConfigError
 from belle_agent.integrations.docker_agent import DockerAgentBackend, DockerAgentError, adapter, hooks
+from belle_agent.integrations.docker_agent.wire import Wire
 from belle_agent.tools.content import ContentToolkit
 from belle_agent.tools.host import APPROVE, REJECT, BoundTurn, ToolHost
 
@@ -176,9 +177,27 @@ class FakeDockerAgent:
             self.turn_headers.append(dict(request.headers))
             if self.on_run is not None:
                 self.on_run()
-            lines = "".join(f"data: {json.dumps(event)}\n\n" for event in self.turns.pop(0))
-            return httpx.Response(200, content=lines.encode(), headers={"content-type": "text/event-stream"})
+            return _sse(self.turns.pop(0))
         return httpx.Response(404, json={"message": "no route"})
+
+
+def _sse(events: Any) -> httpx.Response:
+    """An event stream of ``events``: a list, or an async iterator that may wait between events."""
+
+    def line(event: Any) -> bytes:
+        number, event = event if isinstance(event, tuple) else (0, event)
+        named = f"id: {number}\n" if number else ""
+        return f"{named}data: {json.dumps(event)}\n\n".encode()
+
+    async def lines():
+        if isinstance(events, list):
+            for event in events:
+                yield line(event)
+        else:
+            async for event in events:
+                yield line(event)
+
+    return httpx.Response(200, content=lines(), headers={"content-type": "text/event-stream"})
 
 
 async def _started_backend(
@@ -786,6 +805,21 @@ async def test_a_call_held_for_a_person_is_one_approval_and_the_answer_resumes_o
         ("POST", "/sessions/s1/resume", {"confirmation": "approve"}),
         ("POST", "/sessions/s1/resume", {"confirmation": "reject", "reason": adapter.REFUSED}),
     ]
+
+
+async def test_the_event_log_gives_each_event_its_number_and_a_control_event_none():
+    def server(request: httpx.Request) -> httpx.Response:
+        assert (request.url.path, request.url.params["since"]) == ("/api/sessions/s1/events", "7")
+        return _sse([(8, {"type": "a"}), {"type": "gap"}, (9, {"type": "b"})])
+
+    wire = Wire("http://docker-agent.test:8080", TOKEN, transport=httpx.MockTransport(server))
+    try:
+        async with wire.session_events("s1", 7) as events:
+            read = [item async for item in events]
+    finally:
+        await wire.close()
+
+    assert read == [(8, {"type": "a"}), (0, {"type": "gap"}), (9, {"type": "b"})]
 
 
 async def test_a_stream_that_breaks_fails_the_turn_once_as_lost_and_an_unreached_server_is_named():
