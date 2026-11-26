@@ -118,7 +118,7 @@ OpenCode v2, Docker Agent and ACP are experimental.
 4. A tool at `deny` or `ask` becomes a session permission. The model still sees a denied tool in its list, and Belle refuses the call. See [Docker Agent scopes](backends/docker-agent.md#scopes).
 5. JiuwenSwarm's permission engine asks with buttons. A post that reaches more people than the turn's conversation asks the requester first. See [Tools and approvals](integrations/jiuwenswarm.md#tools-and-approvals).
 6. A tool at `ask` waits for a person, who answers on the platform. The `clicks.approve` rule says who may answer. See [Docker Agent scopes](backends/docker-agent.md#scopes) and [Held calls](platforms/README.md#held-calls).
-7. OpenCode's own `question` tool.
+7. OpenCode's own `question` tool. Belle asks the questions of one call one at a time, and replies to OpenCode once a person answered all of them. Belle refuses a question that takes more than one option. See [Questions](backends/opencode.md#questions).
 8. Docker Agent's `user_prompt` tool, with free text or one choice. Belle refuses a schema that asks for more. See [Questions from the model](backends/docker-agent.md#questions-from-the-model).
 9. A job delivers to Slack. A job cannot target Mattermost or Matrix. Belle refuses such a job, and a heartbeat follow-up asked for in a Mattermost or Matrix turn. See [JiuwenSwarm limits](integrations/jiuwenswarm.md#limits).
 10. OpenCode does not apply `agent.subagents`, and Belle warns at start. Belle refuses `/belle subagents use`. `deny_tools` can remove OpenCode's own `subagent` tool. See [Tool access](backends/opencode.md#tool-access).

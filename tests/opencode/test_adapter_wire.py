@@ -17,6 +17,7 @@ from belle_agent.backend import (
     EVENT_ACCEPTED,
     EVENT_FAILED,
     EVENT_INTERRUPTED,
+    EVENT_QUESTION,
     EVENT_STEP,
     EVENT_SUCCEEDED,
     EVENT_TEXT_DELTA,
@@ -113,6 +114,9 @@ class FakeOpenCode:
         #: The message of each permission reply that carried one, and each cancelled form with its message.
         self.permission_messages: list[tuple[str, str]] = []
         self.forms_cancelled: list[tuple[str, str | None]] = []
+        #: A form reply waits for this event when one is set, and answers each status here first, in order.
+        self.form_reply_gate: asyncio.Event | None = None
+        self.form_reply_statuses: list[int] = []
         #: Session id to the model it was last switched to. A session that never switched reports none.
         self.models: dict[str, dict] = {}
         self.unmounts = 0
@@ -232,6 +236,10 @@ class FakeOpenCode:
             self.forms_cancelled.append((form_id, request.url.params.get("message")))
             return httpx.Response(204)
         if "/form/" in path and path.endswith("/reply"):
+            if self.form_reply_gate is not None:
+                await self.form_reply_gate.wait()
+            if self.form_reply_statuses:
+                return httpx.Response(self.form_reply_statuses.pop(0), json={"message": "busy"})
             form_id = path.split("/")[5]
             self.forms[session] = [form for form in self.forms.get(session, []) if form["id"] != form_id]
             self.form_replies.append((form_id, body))
@@ -1740,13 +1748,240 @@ async def test_recovery_restores_a_pending_question_and_can_cancel_the_turn(back
     request = TurnRequest("c1", "recover-question", "ask")
     opencode.store("user", C1, id=message_id("", "c1", request.request_id))
     opencode.running.add(C1)
-    opencode.forms[C1] = [{"id": "frm_recover", "title": "Choose", "fields": [{"key": "answer"}]}]
+    opencode.forms[C1] = [{"id": "frm_recover", "title": "Choose", "fields": [{"key": "answer", "type": "string"}]}]
 
     assert (await backend.recover(request)).state == RECOVERY_RUNNING
     assert [question.id for question in await backend.pending("c1")] == ["frm_recover"]
     await backend.answer("c1", "frm_recover", Answer(values=("yes",)))
     assert opencode.form_replies[-1] == ("frm_recover", {"answer": {"answer": "yes"}})
     assert await backend.cancel("c1") is True
+
+
+def _open_form(opencode: FakeOpenCode, *fields: dict, form_id: str = "frm_q") -> None:
+    form = {"id": form_id, "sessionID": C1, "title": "Questions", "fields": list(fields)}
+    opencode.forms[C1] = [form]
+    opencode.emit("form.created", C1, form=form)
+
+
+async def _question(stream):
+    event = await anext(stream)
+    assert event.kind == EVENT_QUESTION
+    return event.question
+
+
+async def test_each_field_of_a_form_is_asked_in_turn_and_one_reply_holds_every_answer(backend, opencode):
+    stream = await _accepted(backend)
+    _open_form(
+        opencode,
+        {"key": "q0", "type": "string", "description": "Which colour?", "options": [{"value": "red"}, {"value": "blue"}]},
+        {"key": "q1", "type": "boolean", "description": "Gift wrap?"},
+        {"key": "q2", "type": "integer", "description": "How many?"},
+    )
+
+    first = await _question(stream)
+    assert (first.id, first.text, first.options) == ("frm_q", "Questions: Which colour?", ("red", "blue"))
+    assert [question.id for question in await backend.pending("c1")] == ["frm_q"]
+    await backend.answer("c1", first.id, Answer(values=("blue",)))
+    second = await _question(stream)
+    assert (second.id, second.options) == ("frm_q.1", ("yes", "no"))
+    assert opencode.form_replies == []
+    # After a reconnect the open question is the one shown again.
+    assert [question.id for question in await backend.pending("c1")] == ["frm_q.1"]
+    # A click on the question that the next one replaced changes nothing.
+    await backend.answer("c1", first.id, Answer(values=("red",)))
+    await backend.answer("c1", second.id, Answer(values=("yes",)))
+    third = await _question(stream)
+    await backend.answer("c1", third.id, Answer(values=("3",)))
+
+    assert opencode.form_replies == [("frm_q", {"answer": {"q0": "blue", "q1": True, "q2": 3}})]
+    opencode.emit("session.execution.succeeded")
+    await _rest(stream)
+
+
+async def test_a_field_whose_condition_fails_is_not_asked(backend, opencode):
+    stream = await _accepted(backend)
+    _open_form(
+        opencode,
+        {"key": "ship", "type": "boolean", "title": "Ship it?"},
+        {"key": "when", "type": "string", "title": "When?", "when": [{"key": "ship", "op": "eq", "value": True}]},
+    )
+
+    question = await _question(stream)
+    assert question.options == ("yes", "no")
+    await backend.answer("c1", question.id, Answer(values=("No",)))
+
+    assert opencode.form_replies == [("frm_q", {"answer": {"ship": False}})]
+    opencode.emit("session.execution.succeeded")
+    await _rest(stream)
+
+
+async def test_an_answer_that_does_not_fit_its_field_cancels_the_form_with_the_reason(backend, opencode):
+    stream = await _accepted(backend)
+    _open_form(opencode, {"key": "count", "type": "number", "title": "How many?"})
+
+    await backend.answer("c1", (await _question(stream)).id, Answer(values=("lots",)))
+    # A stale answer to a form that is gone sends nothing.
+    await backend.answer("c1", "frm_q", Answer(values=("2",)))
+
+    assert opencode.form_replies == []
+    assert opencode.forms_cancelled == [("frm_q", "form field count takes a number; the person answered 'lots'.")]
+    opencode.emit("session.execution.succeeded")
+    await _rest(stream)
+
+
+SIZES = [{"value": "s"}, {"value": "m"}]
+
+
+async def test_a_field_of_several_options_cancels_its_form_when_it_is_reached(backend, opencode):
+    stream = await _accepted(backend)
+    _open_form(
+        opencode,
+        {"key": "colour", "type": "string", "title": "Colour?"},
+        {"key": "sizes", "type": "multiselect", "options": SIZES, "maxItems": 2},
+    )
+
+    await backend.answer("c1", (await _question(stream)).id, Answer(values=("red",)))
+    opencode.emit("session.execution.succeeded")
+    events = await _rest(stream)
+
+    assert [event.kind for event in events] == [EVENT_SUCCEEDED] and opencode.form_replies == []
+    assert opencode.forms_cancelled == [("frm_q", (
+        "Belle cannot ask form field sizes: a person may choose up to 2 of its options, and a question here takes"
+        " one. Ask one question for each choice, or a question with one answer."
+    ))]
+
+
+async def test_a_field_of_one_option_at_most_is_asked_and_one_that_is_not_active_is_skipped(backend, opencode):
+    stream = await _accepted(backend)
+    _open_form(
+        opencode,
+        {"key": "size", "type": "multiselect", "options": SIZES, "maxItems": 1},
+        {"key": "extras", "type": "multiselect", "options": SIZES, "when": [{"key": "size", "op": "eq", "value": "m"}]},
+    )
+
+    question = await _question(stream)
+    assert question.options == ("s", "m")
+    await backend.answer("c1", question.id, Answer(values=("s",)))
+
+    assert opencode.form_replies == [("frm_q", {"answer": {"size": ["s"]}})] and opencode.forms_cancelled == []
+    opencode.emit("session.execution.succeeded")
+    await _rest(stream)
+
+
+async def test_a_form_of_hidden_fields_only_is_replied_to_at_once_with_their_defaults(backend, opencode):
+    stream = await _accepted(backend)
+    _open_form(opencode, {"key": "token", "type": "string", "hidden": True, "default": "preset"})
+    opencode.emit("session.execution.succeeded")
+
+    assert [event.kind for event in await _rest(stream)] == [EVENT_SUCCEEDED]
+    assert opencode.form_replies == [("frm_q", {"answer": {"token": "preset"}})]
+
+
+@pytest.mark.parametrize(("given", "replied"), [(("done",), True), (("not yet",), False)], ids=["done", "declined"])
+async def test_an_external_field_is_done_only_when_the_person_says_so(backend, opencode, given, replied):
+    stream = await _accepted(backend)
+    _open_form(opencode, {"key": "login", "type": "external", "url": "https://login.invalid", "title": "Sign in"})
+
+    question = await _question(stream)
+    assert question.options == ("done",) and "https://login.invalid" in question.text
+    await backend.answer("c1", question.id, Answer(values=given))
+
+    if replied:
+        assert opencode.form_replies == [("frm_q", {"answer": {"login": True}})]
+    else:
+        assert opencode.form_replies == [] and opencode.forms_cancelled == [
+            ("frm_q", "form field login needs the person to finish at https://login.invalid, and they did not say so.")
+        ]
+    opencode.emit("session.execution.succeeded")
+    await _rest(stream)
+
+
+async def test_a_late_answer_to_an_ended_turns_question_sends_nothing_while_a_later_turn_runs(backend, opencode):
+    first = await _accepted(backend)
+    opencode.emit("permission.asked", C1, id="per_old", action="shell", resources=["rm -rf build"])
+    _open_form(opencode, {"key": "q0", "type": "string", "title": "Name?"}, form_id="frm_old")
+    assert {(await _question(first)).id, (await _question(first)).id} == {"per_old", "frm_old"}
+    opencode.emit("session.execution.interrupted", reason="user")
+    await _rest(first)
+
+    second = await _accepted(backend)
+    await backend.answer("c1", "per_old", Answer(approved=True))
+    await backend.answer("c1", "frm_old", Answer(values=("Ada",)))
+
+    assert opencode.permission_replies == [] and opencode.form_replies == []
+    opencode.emit("session.execution.succeeded")
+    await _rest(second)
+
+
+async def test_a_listing_with_no_open_turn_changes_no_form(backend, opencode):
+    _open_form(opencode, {"key": "sizes", "type": "multiselect", "options": SIZES})
+    opencode.forms[C1][0]["fields"] = [{"key": "sizes", "type": "multiselect", "options": SIZES}]
+
+    assert await backend.pending("c1") == []
+
+    assert opencode.forms_cancelled == [] and opencode.form_replies == []
+
+
+async def test_a_hidden_field_takes_its_default_and_an_empty_answer_leaves_a_field_unanswered(backend, opencode):
+    stream = await _accepted(backend)
+    _open_form(
+        opencode,
+        {"key": "token", "type": "string", "hidden": True, "default": "preset"},
+        {"key": "note", "type": "string", "title": "Any note?"},
+    )
+
+    question = await _question(stream)
+    assert question.text == "Questions: Any note?"
+    await backend.answer("c1", question.id, Answer())
+
+    assert opencode.form_replies == [("frm_q", {"answer": {"token": "preset"}})]
+    opencode.emit("session.execution.succeeded")
+    await _rest(stream)
+
+
+async def test_a_reply_that_fails_keeps_the_form_and_its_answers_for_another_answer(backend, opencode):
+    stream = await _accepted(backend)
+    _open_form(opencode, {"key": "q0", "type": "string", "title": "Name?"})
+    question = await _question(stream)
+    opencode.form_reply_statuses = [503]
+
+    with pytest.raises(adapter.WireError):
+        await backend.answer("c1", question.id, Answer(values=("Ada",)))
+    assert [shown.id for shown in await backend.pending("c1")] == ["frm_q"]
+    await backend.answer("c1", question.id, Answer(values=("Ada",)))
+
+    assert opencode.form_replies == [("frm_q", {"answer": {"q0": "Ada"}})]
+    opencode.emit("session.execution.succeeded")
+    await _rest(stream)
+
+
+async def test_an_answer_that_is_sent_while_its_turn_ends_is_sent_whole_before_the_turn_closes(backend, opencode):
+    stream = await _accepted(backend)
+    _open_form(opencode, {"key": "q0", "type": "string", "title": "Name?"})
+    question = await _question(stream)
+    opencode.form_reply_gate = asyncio.Event()
+    answering = asyncio.create_task(backend.answer("c1", question.id, Answer(values=("Ada",))))
+    await asyncio.sleep(0.05)
+
+    opencode.emit("session.execution.interrupted", reason="user")
+    rest = asyncio.create_task(_rest(stream))
+    await asyncio.sleep(0.05)
+    # The turn's end waits for the answer it is sending.
+    assert not rest.done()
+    opencode.form_reply_gate.set()
+    await answering
+    assert (await rest)[-1].kind == EVENT_INTERRUPTED
+
+    # An answer that comes after its turn ended sends nothing.
+    opencode.forms[C1] = [{"id": "frm_late", "title": "Late?", "fields": [{"key": "q0", "type": "string"}]}]
+    await backend.answer("c1", "frm_late", Answer(values=("yes",)))
+    await backend.answer("c1", "per_late", Answer(approved=True))
+    assert opencode.form_replies == [("frm_q", {"answer": {"q0": "Ada"}})] and opencode.permission_replies == []
+
+
+async def test_a_refused_later_question_cancels_its_form(backend, opencode):
+    await backend.refuse_question("c1", "frm_q.2", "nobody could be asked")
+    assert opencode.forms_cancelled == [("frm_q", "nobody could be asked")]
 
 
 async def test_ask_creates_a_form_and_answer_replies_to_a_form_or_a_permission(backend, opencode):
@@ -1757,9 +1992,15 @@ async def test_ask_creates_a_form_and_answer_replies_to_a_form_or_a_permission(b
     await backend.answer("c1", form_id, Answer(values=("yes",)))
     assert opencode.form_replies[-1] == (form_id, {"answer": {"answer": "yes"}})
 
+    stream = await _accepted(backend)
+    for permission in ("per_approve", "per_reject"):
+        opencode.emit("permission.asked", C1, id=permission, action="shell", resources=["ls"])
+        assert (await _question(stream)).id == permission
     await backend.answer("c1", "per_approve", Answer(approved=True))
     await backend.answer("c1", "per_reject", Answer(approved=False))
     assert opencode.permission_replies == [("per_approve", "once"), ("per_reject", "reject")]
+    opencode.emit("session.execution.succeeded")
+    await _rest(stream)
 
 
 async def test_a_refused_question_cancels_its_form_or_rejects_its_permission_with_the_reason(backend, opencode):

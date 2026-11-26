@@ -90,6 +90,36 @@ async def test_a_question_the_platform_cannot_show_reaches_the_model_as_its_reas
     assert world.outcomes() == [OUTCOME_POSTED_FINAL]
 
 
+async def test_each_question_of_one_question_call_is_asked_and_its_answers_reach_the_model(world, model):
+    colour = {"question": "Which colour?", "header": "Colour", "options": [{"label": "red", "description": "warm"}, {"label": "blue", "description": "cold"}]}
+    size = {"question": "Which size?", "header": "Size", "options": [{"label": "small", "description": "s"}, {"label": "large", "description": "l"}]}
+    text = "go " + call("question", questions=[colour, size])
+
+    await world.platform.inject(world.direct(text))
+    (first,) = await world.wait_question(conversation="D-U1")
+    assert first.question.options[:2] == ("red", "blue") and "Which colour?" in first.question.text
+    await world.platform.inject(world.answer_to(first, values=("blue",)))
+    second = (await world.wait_question(2, conversation="D-U1"))[-1]
+    assert second.question.options[:2] == ("small", "large") and "Which size?" in second.question.text
+    await world.send(world.answer_to(second, values=("large",)))
+
+    (result,) = said(model.requests(_session(model, text))[-1], "tool")
+    assert '"Which colour?"="blue"' in result and '"Which size?"="large"' in result
+    assert world.outcomes() == [OUTCOME_POSTED_FINAL]
+
+
+async def test_a_question_that_takes_several_options_reaches_the_model_as_the_reason_it_was_not_asked(world, model):
+    sizes = {"question": "Which sizes?", "header": "Sizes", "multiple": True,
+             "options": [{"label": "small", "description": "s"}, {"label": "large", "description": "l"}]}
+    text = "go " + call("question", questions=[sizes])
+
+    await world.send(world.direct(text))
+
+    (result,) = said(model.requests(_session(model, text))[-1], "tool")
+    assert "a person may choose any number of its options" in result
+    assert world.questions() == [] and world.outcomes() == [OUTCOME_POSTED_FINAL]
+
+
 async def test_a_scoped_ask_tool_makes_no_provider_progress_until_it_is_answered(build_world, model):
     world = await build_world(
         """

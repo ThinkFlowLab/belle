@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+import math
 import time
 import urllib.parse
 from collections.abc import AsyncIterator, Mapping, Sequence
@@ -127,6 +128,8 @@ RECONCILE_SETTLE_SECONDS = 0.5
 
 ALREADY_RUNNING = "A turn is already running in this conversation."
 ALREADY_RAN = "This request has already run in this conversation."
+#: Why a form is cancelled when a field is left to ask and no turn of Belle's reads the session to ask it.
+FORM_UNREAD = "Belle reads no turn of this session, so the next question of the form reached nobody."
 EXECUTION_LOST = "OpenCode stopped running the turn before it ended."
 
 # In a turn's queue: events were read again after a time in which none could be. OpenCode replays
@@ -134,6 +137,8 @@ EXECUTION_LOST = "OpenCode stopped running the turn before it ended."
 _RESUBSCRIBED: dict[str, Any] = {}
 # In a turn's queue: the turn is to stop while children it started run. Its reader stops them with it.
 _CANCELLED: dict[str, Any] = {}
+# In a turn's queue: something the turn waits on changed outside its events, as a form that its reader is to settle.
+_RECHECK: dict[str, Any] = {}
 
 
 #: The kinds of input OpenCode says a model takes, and the media types of tool-result content each lets
@@ -176,7 +181,7 @@ class _Turn:
     #: Session token totals before this turn; USAGE events subtract these so counts are turn-scoped.
     tokens_in_before: int = 0
     tokens_out_before: int = 0
-    events: asyncio.Queue[Mapping[str, Any]] = field(default_factory=asyncio.Queue)
+    events: asyncio.Queue[Mapping[str, Any] | TurnEvent] = field(default_factory=asyncio.Queue)
     #: Tool call id to tool name: `session.tool.called` carries the id only.
     tools: dict[str, str] = field(default_factory=dict)
     #: The name OpenCode advertises each of Belle's own tools under, to the name the core knows it by.
@@ -200,6 +205,15 @@ class _Turn:
     children: dict[str, str] = field(default_factory=dict)
     #: The children's reports the session holds and has handed to no execution yet.
     inbox: set[str] = field(default_factory=set)
+    #: Form id to the open forms of the session, with the answers given so far.
+    forms: dict[str, "_Form"] = field(default_factory=dict)
+    #: The forms of ``forms`` that have no question to ask, for the turn's reader to reply to or to cancel.
+    settle: list[str] = field(default_factory=list)
+    #: The ids of the questions this turn showed. An answer reaches only the turn that asked it.
+    asked: set[str] = field(default_factory=set)
+    #: The turn has ended for Belle: no answer reaches it. Set under ``lock``, which an answer holds while it is sent.
+    closed: bool = False
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     #: When the turn began, by the monotonic clock: a refusal of the relay endpoint since then is this turn's to name.
     began: float = field(default_factory=time.monotonic)
 
@@ -311,10 +325,18 @@ def translate(event: Mapping[str, Any], turn: _Turn) -> TurnEvent | None:
         case "permission.asked":
             # OpenCode's permission engine raised an `ask` from the session ruleset. A person decides;
             # the wait is server state, not a held tool call. The action is the tool, built-in or `belle_*`.
-            return _question_from_permission(data)
+            event = _question_from_permission(data)
+            turn.asked.add(event.question.id)
+            return event
         case "form.created":
-            # A question on the wire: the model's native `question` tool, or one Belle invented.
-            return _question_from_form(data.get("form") or {})
+            # A question on the wire: the model's native `question` tool, or one Belle invented. A person answers
+            # its fields one question at a time, so a field that depends on an earlier answer is asked after it.
+            form = turn.forms[form.id] = _form(data.get("form") or {})
+            if form.question is None:
+                turn.settle.append(form.id)
+                return None
+            turn.asked.add(form.question.id)
+            return TurnEvent(EVENT_QUESTION, question=form.question)
     return None
 
 
@@ -537,14 +559,139 @@ def _question_from_permission(data: Mapping[str, Any]) -> TurnEvent:
     )
 
 
-def _question_from_form(form: Mapping[str, Any]) -> TurnEvent:
-    fields = form.get("fields") or []
-    first = fields[0] if fields else {}
-    options = tuple(str(option.get("value")) for option in first.get("options") or ())
-    prompt = str(first.get("description") or first.get("title") or "")
-    title = str(form.get("title") or "")
-    text = f"{title}: {prompt}".strip(": ").strip() if title and prompt else (title or prompt)
-    return TurnEvent(EVENT_QUESTION, question=Question(id=str(form.get("id") or ""), text=text, options=options, kind=QUESTION))
+#: What a field's answer is when the person gave no value.
+_UNANSWERED = object()
+
+
+def _form_id(question_id: str) -> str:
+    """The form a question asks for: its id less the ``.<count>`` of a later question."""
+    head, dot, tail = question_id.rpartition(".")
+    return head if dot and tail.isdigit() else question_id
+
+
+@dataclass
+class _Form:
+    """A form whose fields a person answers one question at a time, and the answers given so far."""
+
+    id: str
+    title: str
+    fields: Sequence[Mapping[str, Any]]
+    answers: dict[str, Any] = field(default_factory=dict)
+    #: The field the open question asks for, and that question. ``None``: no field is left to ask.
+    index: int = -1
+    question: Question | None = None
+    #: How many questions the form has asked. The first has the form's id, each later one ``<id>.<count>``.
+    asked: int = 0
+    #: Why the field reached next cannot be asked here. The form is then cancelled with it.
+    refusal: str = ""
+
+
+def _form(form: Mapping[str, Any]) -> _Form:
+    """Read a form from the wire and open the question of its first field."""
+    found = _Form(id=str(form.get("id") or ""), title=str(form.get("title") or ""), fields=form.get("fields") or ())
+    _ask_next(found)
+    return found
+
+
+def _unaskable(item: Mapping[str, Any]) -> str:
+    """Why a person cannot answer one field here, or nothing.
+
+    A question offers a choice of one option on every platform. So a multiselect field can be asked only where it
+    takes at most one option.
+    """
+    if item.get("type") != "multiselect" or item.get("maxItems") == 1:
+        return ""
+    most = item.get("maxItems")
+    choice = f"up to {most}" if isinstance(most, int) else "any number"
+    return (
+        f"Belle cannot ask form field {item.get('key')}: a person may choose {choice} of its options, and a"
+        " question here takes one. Ask one question for each choice, or a question with one answer."
+    )
+
+
+def _ask_next(form: _Form) -> Question | None:
+    """Open the question of the next field that the answers so far make active, or close the form's questions.
+
+    A hidden field is not asked. It takes its default, if it has one, as OpenCode's own clients do. A field that
+    cannot be asked here closes the questions with ``refusal``.
+    """
+    form.question = None
+    for index in range(form.index + 1, len(form.fields)):
+        item = form.fields[index]
+        if not all(_holds(when, form.answers.get(str(when.get("key")))) for when in item.get("when") or ()):
+            continue
+        if item.get("hidden"):
+            if "default" in item:
+                form.answers[str(item.get("key"))] = item["default"]
+            continue
+        form.refusal = _unaskable(item)
+        if form.refusal:
+            break
+        form.index = index
+        question_id = f"{form.id}.{form.asked}" if form.asked else form.id
+        form.asked += 1
+        form.question = _field_question(form.title, item, question_id)
+        break
+    return form.question
+
+
+def _holds(when: Mapping[str, Any], value: Any) -> bool:
+    """Whether one ``when`` condition of a field holds, as OpenCode's ``Form`` reads it: an unanswered field never matches."""
+    if value is None:
+        return False
+    hit = when.get("value") in value if isinstance(value, list) else value == when.get("value")
+    return hit if when.get("op") == "eq" else not hit
+
+
+def _field_question(title: str, item: Mapping[str, Any], question_id: str) -> Question:
+    """Ask for one field: its options, ``yes`` and ``no`` for a boolean, or ``done`` once its page was visited."""
+    kind = item.get("type")
+    if kind == "boolean":
+        options: tuple[str, ...] = ("yes", "no")
+    elif kind == "external":
+        options = ("done",)
+    else:
+        options = tuple(str(option.get("value")) for option in item.get("options") or ())
+    prompt = " ".join(str(part) for part in (item.get("description") or item.get("title"), item.get("url")) if part)
+    text = f"{title}: {prompt}" if title and prompt and prompt != title else (title or prompt)
+    return Question(id=question_id, text=text, options=options, kind=QUESTION)
+
+
+def _field_value(item: Mapping[str, Any], answer: Answer) -> Any:
+    """Read a person's answer as the value of one field, or raise ``ValueError`` that says what the field takes.
+
+    An answer with no value leaves the field unanswered: ``_UNANSWERED``.
+    """
+    key, kind, values = item.get("key"), item.get("type"), answer.values
+    if kind == "external":
+        # OpenCode takes only ``true`` for it: the person says they finished on the page.
+        if answer.approved or [value.strip().lower() for value in values] in (["done"], ["yes"]):
+            return True
+        raise ValueError(f"form field {key} needs the person to finish at {item.get('url')}, and they did not say so")
+    if kind == "boolean" and not values and answer.approved is not None:
+        return answer.approved
+    if not values:
+        return _UNANSWERED
+    if len(values) > 1:
+        raise ValueError(f"form field {key} takes one answer; the person gave {len(values)}")
+    given = values[0]
+    if kind == "string":
+        return given
+    if kind == "multiselect":
+        return [given]
+    if kind == "boolean":
+        if given.strip().lower() in ("yes", "no"):
+            return given.strip().lower() == "yes"
+        raise ValueError(f"form field {key} takes yes or no; the person answered {given!r}")
+    if kind in ("integer", "number"):
+        try:
+            number = int(given) if kind == "integer" else float(given)
+        except ValueError:
+            number = math.nan
+        if not math.isfinite(number):
+            raise ValueError(f"form field {key} takes {'an integer' if kind == 'integer' else 'a number'}; the person answered {given!r}")
+        return number
+    raise ValueError(f"form field {key} has the type {kind!r}, which Belle cannot answer")
 
 
 def stored(messages: Sequence[Mapping[str, Any]], outcome: str) -> TurnEvent:
@@ -637,6 +784,8 @@ class OpenCodeBackend:
         self._belle_tools: frozenset[str] = frozenset()
         # Session id to the turn that runs in it.
         self._turns: dict[str, _Turn] = {}
+        # The forms that ``ask`` made and nobody has answered. They wait on no turn.
+        self._invented: set[str] = set()
         # Set while events are read and the tools are mounted. A prompt waits for it.
         self._subscribed = asyncio.Event()
         self._mount_lock = asyncio.Lock()
@@ -1311,7 +1460,13 @@ class OpenCodeBackend:
                 if event is _CANCELLED:
                     ended = TurnEvent(EVENT_INTERRUPTED)
                     break
+                if isinstance(event, TurnEvent):
+                    # The next question of a form, put by the answer to the one before it.
+                    yield event
+                    continue
                 ended = await self._reconcile(session, turn) if event is _RESUBSCRIBED else _in_session(session, translate(event, turn))
+                while turn.settle:
+                    await self._settle_form(session, turn, turn.settle.pop(0))
                 if ended is None:
                     if event is _RESUBSCRIBED:
                         # The ask events are not replayed. The open ones are read back and re-relayed; the
@@ -1342,6 +1497,8 @@ class OpenCodeBackend:
                 ended = _in_session(session, ended)
         finally:
             try:
+                async with turn.lock:
+                    turn.closed = True
                 # A reader that leaves as the host stops leaves the turn running. The children of an ended turn still stop.
                 if stop and not (left and self._shutting_down):
                     await self._stop(session, turn)
@@ -1368,6 +1525,8 @@ class OpenCodeBackend:
                     event = await turn.events.get()
                     if event is _RESUBSCRIBED:
                         return
+                    if isinstance(event, TurnEvent):
+                        continue
                     kind = str(event.get("type", ""))
                     translate(event, turn)
                     if kind == "session.execution.started":
@@ -1411,20 +1570,107 @@ class OpenCodeBackend:
         form = await self._wire.call(
             "POST", f"/api/session/{session}/form", {"title": question.text or "Question", "fields": [field]}
         )
-        return str((form or {}).get("id") or "")
+        form_id = str((form or {}).get("id") or "")
+        self._invented.add(form_id)
+        return form_id
 
     async def answer(self, conversation: str, question_id: str, answer: Answer) -> None:
-        """Deliver a person's answer: a decision on a permission, or a reply to a form."""
+        """Deliver a person's answer: a decision on a permission, or a reply to a form.
+
+        Only the open turn that asked a question takes its answer. One that comes after that turn ended sends
+        nothing, even while a later turn runs in the session, so no tool call and no question goes on after its
+        turn. A form that :meth:`ask` made waits on no turn.
+        """
         session = session_id(self._namespace, conversation)
-        if question_id.startswith(PERMISSION_ID_PREFIX):
-            decision = "once" if approves(answer) else "reject"
-            await self._wire.call("POST", f"/api/session/{session}/permission/{question_id}/reply", {"decision": decision})
-        elif question_id.startswith(FORM_ID_PREFIX):
-            value = answer.values[0] if answer.values else ("yes" if approves(answer) else "no")
-            await self._wire.call(
-                "POST", f"/api/session/{session}/form/{question_id}/reply",
-                {"answer": {await self._form_key(session, question_id): value}},
-            )
+        turn = self._turns.get(session)
+        async with turn.lock if turn is not None else contextlib.nullcontext():
+            invented = question_id in self._invented
+            if not invented and (turn is None or turn.closed or question_id not in turn.asked):
+                logger.warning(
+                    "opencode: no open turn asked this question, so its answer sends nothing: session=%s question=%s",
+                    session, question_id,
+                )
+                return
+            if question_id.startswith(PERMISSION_ID_PREFIX):
+                decision = "once" if approves(answer) else "reject"
+                await self._wire.call("POST", f"/api/session/{session}/permission/{question_id}/reply", {"decision": decision})
+            elif question_id.startswith(FORM_ID_PREFIX):
+                await self._answer_form(session, None if invented else turn, question_id, answer)
+
+    async def _answer_form(self, session: str, turn: "_Turn | None", question_id: str, answer: Answer) -> None:
+        """Keep the answer to one field of a form, then ask the next field, or settle the form.
+
+        An answer that does not fit its field cancels the form, and the model reads why.
+        """
+        forms = turn.forms if turn is not None else {}
+        form = next((form for form in forms.values() if form.question is not None and form.question.id == question_id), None)
+        if form is None and turn is None:
+            # A form that ``ask`` made: it has one field.
+            listed = await self._wire.call("GET", f"/api/session/{session}/form") or ()
+            form = next((_form(entry) for entry in listed if entry.get("id") == question_id), None)
+            if form is not None:
+                forms[form.id] = form
+        if form is None or form.question is None:
+            logger.warning("opencode: no form waits for this answer: session=%s question=%s", session, question_id)
+            return
+        item = form.fields[form.index]
+        try:
+            value = _field_value(item, answer)
+        except ValueError as exc:
+            await self._cancel_form(session, form.id, f"{exc}.")
+            return
+        key = str(item.get("key"))
+        if value is _UNANSWERED:
+            form.answers.pop(key, None)
+        else:
+            form.answers[key] = value
+        asked = form.question
+        if _ask_next(form) is not None:
+            if turn is None:
+                await self._cancel_form(session, form.id, FORM_UNREAD)
+            else:
+                turn.asked.add(form.question.id)
+                turn.events.put_nowait(TurnEvent(EVENT_QUESTION, question=form.question))
+            return
+        await self._settle(session, forms, form, asked)
+
+    async def _settle_form(self, session: str, turn: "_Turn", form_id: str) -> None:
+        """Reply to or cancel a form of the turn that has no question to ask, as one whose fields are all hidden."""
+        form = turn.forms.get(form_id)
+        if form is not None and form.question is None:
+            await self._settle(session, turn.forms, form)
+
+    async def _settle(self, session: str, forms: "dict[str, _Form]", form: "_Form", asked: Question | None = None) -> None:
+        """Cancel a form whose next field cannot be asked, or reply with its answers.
+
+        A reply that fails keeps the form, with ``asked`` as its open question, so that it can be answered again.
+        """
+        if form.refusal:
+            await self._cancel_form(session, form.id, form.refusal)
+            return
+        try:
+            await self._wire.call("POST", f"/api/session/{session}/form/{form.id}/reply", {"answer": form.answers})
+        except WireError as exc:
+            if exc.status != 400:
+                form.question = asked
+                raise
+            # OpenCode checks each answer against its field, as for a length, a pattern or a required field.
+            await self._cancel_form(session, form.id, f"OpenCode refused the answers: {exc}.")
+            return
+        except httpx.HTTPError:
+            form.question = asked
+            raise
+        forms.pop(form.id, None)
+        self._invented.discard(form.id)
+
+    async def _cancel_form(self, session: str, form_id: str, reason: str) -> None:
+        """Cancel a form with ``reason`` as the message the model reads."""
+        turn = self._turns.get(session)
+        if turn is not None:
+            turn.forms.pop(form_id, None)
+        self._invented.discard(form_id)
+        query = urllib.parse.urlencode({"message": reason})
+        await self._wire.call("DELETE", f"/api/session/{session}/form/{form_id}?{query}")
 
     async def refuse_question(self, conversation: str, question_id: str, reason: str) -> None:
         """Cancel a form, or reject a permission, with ``reason`` as the message its asker reads."""
@@ -1434,16 +1680,7 @@ class OpenCodeBackend:
                 "POST", f"/api/session/{session}/permission/{question_id}/reply", {"decision": "reject", "message": reason}
             )
         elif question_id.startswith(FORM_ID_PREFIX):
-            query = urllib.parse.urlencode({"message": reason})
-            await self._wire.call("DELETE", f"/api/session/{session}/form/{question_id}?{query}")
-
-    async def _form_key(self, session: str, form_id: str) -> str:
-        """The key of a form's first field, or ``answer`` for a form this adapter built."""
-        for form in await self._wire.call("GET", f"/api/session/{session}/form") or ():
-            if form.get("id") == form_id:
-                fields = form.get("fields") or []
-                return str(fields[0].get("key")) if fields else "answer"
-        return "answer"
+            await self._cancel_form(session, _form_id(question_id), reason)
 
     async def pending(self, conversation: str) -> list[Question]:
         """List what a conversation's session waits on a person for.
@@ -1469,7 +1706,21 @@ class OpenCodeBackend:
             )
             for request in permissions or ()
         ]
-        questions += [Question(id=str(form.get("id") or ""), text=str(form.get("title") or "")) for form in forms or ()]
+        # A listing changes nothing in OpenCode. A form with no question to ask is settled by the reader of an
+        # open turn, and by nobody else.
+        turn = self._turns.get(session)
+        open_turn = turn if turn is not None and not turn.closed else None
+        for entry in forms or ():
+            form = (open_turn.forms.get(str(entry.get("id") or "")) if open_turn else None) or _form(entry)
+            if open_turn is not None:
+                open_turn.forms[form.id] = form
+                if form.question is None:
+                    open_turn.settle.append(form.id)
+                    open_turn.events.put_nowait(_RECHECK)
+            if form.question is not None:
+                questions.append(form.question)
+        if open_turn is not None:
+            open_turn.asked.update(question.id for question in questions)
         return questions
 
     async def active(self) -> list[str]:

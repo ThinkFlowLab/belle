@@ -166,6 +166,37 @@ the shared rules. A setting that the OpenCode backend cannot apply produces a
 warning at startup. The [feature matrix](../feature-matrix.md#harnesses)
 compares the harnesses.
 
+## Questions
+
+OpenCode puts a question to a person as a form. A form has one or more
+fields, and the `question` tool makes one field for each question of its
+call. Belle asks the fields one at a time, in their order. It skips a field
+whose `when` condition does not hold for the answers given before it. It also
+skips a hidden field, which takes its default. When a person answered the
+last field, Belle sends all the answers to OpenCode in one reply. A form whose
+fields are all hidden gets that reply at once. A boolean field offers `yes`
+and `no`. An external field offers `done` after its URL, and an answer other
+than `done` cancels the form. A number or integer field takes the text of the
+answer. An answer with no value leaves its field unanswered.
+
+A question on a platform takes one option. A multiselect field with
+`maxItems: 1` is asked as one choice. When Belle reaches a field that lets a
+person choose more than one option, such as a field of a `question` call with
+`multiple: true`, it cancels the form, and the model reads why. An answer that does not fit its
+field also cancels the form, for example `form field count takes a number;
+the person answered 'lots'`. OpenCode can refuse the answers, for example for
+a pattern. Belle then cancels the form with OpenCode's reason. A reply that
+fails in another way keeps the form and its answers, and the last question
+can be answered again.
+
+Only the open turn that asked a question takes its answer. An answer or an
+approval that arrives after that turn ended sends nothing, also while a later
+turn runs in the same session, so OpenCode does not go on with the call that
+waits for it. The end of a turn waits for an answer that is being sent.
+After a lost connection, Belle shows the open question of each form again.
+After a restart, it asks each form again from its first field, because the
+answers given before the restart are gone.
+
 ## Continued responses
 
 OpenCode continues a response that reaches the output token limit:
